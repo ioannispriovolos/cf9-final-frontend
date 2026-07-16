@@ -8,6 +8,6 @@ export const loginSchema = z.object({
 export type LoginFields = z.infer<typeof loginSchema>
 
 export type LoginResponse = {
-    access_token: string;
+    token: string;
     token_type: string;
 }

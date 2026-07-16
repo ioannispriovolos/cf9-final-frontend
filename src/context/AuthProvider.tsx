@@ -29,7 +29,7 @@ function readTenantFromToken(token: string | null): string | null {
 }
 
 export const AuthProvider = ({children}: {children: React.ReactNode}) => {
-    const cookieAccessToken = getCookie("access_token")
+    const cookieAccessToken = getCookie("token")
 
     const [accessToken, setAccessToken] = useState<string | null>(
         () => cookieAccessToken ?? null
@@ -41,18 +41,18 @@ export const AuthProvider = ({children}: {children: React.ReactNode}) => {
 
     const loginUser = async (fields: LoginFields) => {
         const res = await login(fields);
-        setCookie("access_token", res.access_token, {
+        setCookie("token", res.token, {
             expires: 1,
             SameSite: "Lax",
             secure: false,
             path: "/",
         });
-        setAccessToken(res.access_token);
-        setTenantId(readTenantFromToken(res.access_token));
+        setAccessToken(res.token);
+        setTenantId(readTenantFromToken(res.token));
     }
 
     const logoutUser = () => {
-        deleteCookie("access_token");
+        deleteCookie("token");
         setAccessToken(null);
         setTenantId(null);
     }
