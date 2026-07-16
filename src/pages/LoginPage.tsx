@@ -76,7 +76,7 @@ export default function LoginPage() {
                     {isSubmitting ? "Logging in..." : "Login"}
                 </Button>
                 <div className="text-center">
-                    <select
+                    <select className="text-center"
                         defaultValue=""
                         onChange={(e) => {
                             if (e.target.value) {
