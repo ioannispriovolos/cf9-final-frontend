@@ -12,9 +12,30 @@ export default function LoginPage() {
     const { loginUser } = useAuth();
     const navigate = useNavigate();
 
+    const demoUsers = {
+        admin: {
+            username: "admin_user",
+            password: "password123",
+        },
+        engineer: {
+            username: "engineer_user",
+            password: "password123",
+        },
+        viewer: {
+            username: "viewer_user",
+            password: "password123",
+        },
+    };
+
+    const selectDemoUser = (role: keyof typeof demoUsers) => {
+        setValue("username", demoUsers[role].username);
+        setValue("password", demoUsers[role].password);
+    };
+
     const {
         register,
         handleSubmit,
+        setValue,
         formState: {errors, isSubmitting}
     } = useForm<LoginFields>({
         resolver: zodResolver(loginSchema)
@@ -54,6 +75,22 @@ export default function LoginPage() {
                 <Button type="submit" className="w-full">
                     {isSubmitting ? "Logging in..." : "Login"}
                 </Button>
+                <div className="text-center">
+                    <select
+                        defaultValue=""
+                        onChange={(e) => {
+                            if (e.target.value) {
+                                selectDemoUser(e.target.value as keyof typeof demoUsers);
+                            }
+                        }}
+                    >
+                        <option value="">Select demo user</option>
+                        <option value="admin">Admin</option>
+                        <option value="engineer">Network Engineer</option>
+                        <option value="viewer">Viewer</option>
+                    </select>
+                </div>
+
             </form>
         </>
     )
