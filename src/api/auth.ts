@@ -10,10 +10,13 @@ export async function login({
     form.append("username", username)
     form.append("password", password)
 
-    const res = await fetch(API_URL + "/login/access-token", {
+    // Convert FormData or an object to a valid JSON string
+    const payload = Object.fromEntries(new URLSearchParams(form.toString()));
+
+    const res = await fetch(API_URL + "/auth/authenticate", {
         method: "POST",
-        headers: {"Content-Type": "application/x-www-form-urlencoded"},
-        body: form.toString(),
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(payload), // Correctly formatted JSON
     })
 
     if (!res.ok) {
