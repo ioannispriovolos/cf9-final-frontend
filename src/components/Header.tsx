@@ -5,10 +5,10 @@ const Header = () => {
 
     return (
         <>
-            <header className="bg-cf-dark-red fixed w-full z-50">
+            <header className="bg-custom-primary fixed w-full z-50">
                 <div className="container mx-auto px-4 flex items-center justify-between">
                     <Link to="/">
-                        <img src="https://codingfactory.aueb.gr/sites/all/themes/cf_theme/logo.png" alt="CF logo" className="my-4 h-16"/>
+                        <img src="https://miro.medium.com/1*8ebQwZcMBgsZ6prLW8p-HA.png" alt="SSH logo" className="my-4 h-16"/>
                     </Link>
 
 
