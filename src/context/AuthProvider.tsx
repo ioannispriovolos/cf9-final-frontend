@@ -7,22 +7,21 @@ import {login} from "src/api/auth.ts";
 type AuthContextProps = {
     isAuthenticated: boolean;
     accessToken: string | null;
-    tenantId: string | null;
+    role: string | null;
     loginUser: (fields: LoginFields) => Promise<void>;
     logoutUser: () => void;
 }
 
 type JwtPayload = {
-    email?: string;
-    tenant_id: string;
+    role: string;
 }
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined)
 
-function readTenantFromToken(token: string | null): string | null {
+function readRoleFromToken(token: string | null): string | null {
     if (!token) return null;
     try {
-        return jwtDecode<JwtPayload>(token).tenant_id ?? null;
+        return jwtDecode<JwtPayload>(token).role ?? null;
     } catch {
         return null;
     }
@@ -35,8 +34,8 @@ export const AuthProvider = ({children}: {children: React.ReactNode}) => {
         () => cookieAccessToken ?? null
     );
 
-    const [tenantId, setTenantId] = useState<string | null>(
-        readTenantFromToken(cookieAccessToken ?? null)
+    const [role, setRoleId] = useState<string | null>(
+        readRoleFromToken(cookieAccessToken ?? null)
     );
 
     const loginUser = async (fields: LoginFields) => {
@@ -48,13 +47,13 @@ export const AuthProvider = ({children}: {children: React.ReactNode}) => {
             path: "/",
         });
         setAccessToken(res.token);
-        setTenantId(readTenantFromToken(res.token));
+        setRoleId(readRoleFromToken(res.token));
     }
 
     const logoutUser = () => {
         deleteCookie("token");
         setAccessToken(null);
-        setTenantId(null);
+        setRoleId(null);
     }
 
     return (
@@ -62,7 +61,7 @@ export const AuthProvider = ({children}: {children: React.ReactNode}) => {
             value={{
                 isAuthenticated: !!accessToken,
                 accessToken,
-                tenantId,
+                role,
                 loginUser,
                 logoutUser,
             }}>
