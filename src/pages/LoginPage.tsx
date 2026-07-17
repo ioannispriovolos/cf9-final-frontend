@@ -9,7 +9,7 @@ import {toast} from "sonner";
 import {useNavigate} from "react-router";
 
 export default function LoginPage() {
-    const { loginUser } = useAuth();
+    const { loginUser, roleRef } = useAuth();
     const navigate = useNavigate();
 
     const demoUsers = {
@@ -43,9 +43,24 @@ export default function LoginPage() {
 
     const onSubmit = async (data: LoginFields) => {
         try {
+            // 1. Await the authentication process to finish setting the cookie/ref
             await loginUser(data);
+
+            // 2. CRUCIAL: Create the missing 'userRole' variable by reading the ref
+            const userRole = roleRef.current;
+
             toast.success("Login successful");
-            navigate("/products");
+
+            // 3. Now the compiler knows exactly what 'userRole' means!
+            if (userRole === "ADMIN") {
+                navigate("/admin");
+            } else if (userRole === "NETWORK_ENGINEER") {
+                navigate("/engineer");
+            } else if (userRole === "VIEWER") {
+                navigate("/viewer");
+            } else {
+                navigate("/");
+            }
         } catch (error) {
             toast.error(error instanceof Error ? error.message : "Login failed");
         }

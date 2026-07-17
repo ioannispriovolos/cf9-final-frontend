@@ -1,5 +1,5 @@
 import type {LoginFields} from "src/schemas/auth.ts";
-import {createContext, useContext, useState} from "react";
+import {createContext, useContext, useRef, useState} from "react";
 import {jwtDecode} from "jwt-decode";
 import {deleteCookie, getCookie, setCookie} from "src/utils/cookies.ts";
 import {login} from "src/api/auth.ts";
@@ -8,6 +8,7 @@ type AuthContextProps = {
     isAuthenticated: boolean;
     accessToken: string | null;
     role: string | null;
+    roleRef: React.RefObject<string | null>; // 1. Expose the ref to the context
     loginUser: (fields: LoginFields) => Promise<void>;
     logoutUser: () => void;
 }
@@ -38,6 +39,8 @@ export const AuthProvider = ({children}: {children: React.ReactNode}) => {
         readRoleFromToken(cookieAccessToken ?? null)
     );
 
+    const roleRef = useRef<string | null>(readRoleFromToken(cookieAccessToken ?? null));
+
     const loginUser = async (fields: LoginFields) => {
         const res = await login(fields);
         setCookie("token", res.token, {
@@ -48,6 +51,7 @@ export const AuthProvider = ({children}: {children: React.ReactNode}) => {
         });
         setAccessToken(res.token);
         setRoleId(readRoleFromToken(res.token));
+        roleRef.current = readRoleFromToken(res.token);
     }
 
     const logoutUser = () => {
@@ -62,6 +66,7 @@ export const AuthProvider = ({children}: {children: React.ReactNode}) => {
                 isAuthenticated: !!accessToken,
                 accessToken,
                 role,
+                roleRef,
                 loginUser,
                 logoutUser,
             }}>
