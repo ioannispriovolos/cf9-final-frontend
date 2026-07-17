@@ -59,6 +59,7 @@ export const AuthProvider = ({children}: {children: React.ReactNode}) => {
         deleteCookie("token");
         setAccessToken(null);
         setRoleId(null);
+        roleRef.current = null;
     }
 
     return (
