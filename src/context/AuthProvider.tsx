@@ -3,6 +3,7 @@ import {createContext, useContext, useRef, useState} from "react";
 import {jwtDecode} from "jwt-decode";
 import {deleteCookie, getCookie, setCookie} from "src/utils/cookies.ts";
 import {login} from "src/api/auth.ts";
+import * as React from "react";
 
 type AuthContextProps = {
     isAuthenticated: boolean;
