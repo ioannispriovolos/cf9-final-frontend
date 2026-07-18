@@ -28,7 +28,7 @@ export default function AdminDashboardPage() {
                         activeTab === "ssh" ? "bg-black text-white font-medium" : "hover:bg-gray-200 text-gray-700"
                     }`}
                 >
-                    SSH Keys
+                    SSH Management
                 </button>
 
                 <button
