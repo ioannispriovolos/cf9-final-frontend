@@ -1,18 +1,59 @@
-import { useState } from "react";
+import {useCallback, useEffect, useState} from "react";
+import type {User} from "@/schemas/users.ts";
+import {getUsers} from "@/api/users.ts";
+import * as React from "react";
 
 export default function UserManagementPanel() {
     // Sub-navigation state to swap between actions cleanly
     const [activeSubView, setActiveSubView] = useState<"view" | "create" | "modify" | "delete">("view");
 
-    // Dummy query state for fetching a specific user by UUID
+    // Component State
+    const [users, setUsers] = useState<User[]>([]);
     const [uuidQuery, setUuidQuery] = useState("");
+    const [isLoading, setIsLoading] = useState(false);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-    // Mock data representing database records from your Java Spring Boot backend
-    const mockUsers = [
-        { uuid: "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d", username: "admin_root", email: "admin@cf9.com", role: "ADMIN", status: "Active" },
-        { uuid: "f7e6d5c4-b3a2-1b0c-9d8e-7f6e5d4c3b2a", username: "net_eng_alex", email: "alex@cf9.com", role: "NETWORK_ENGINEER", status: "Active" },
-        { uuid: "bc123456-7890-abcd-ef12-34567890abcd", username: "viewer_guest", email: "guest@cf9.com", role: "VIEWER", status: "Active" },
-    ];
+    // 1. Wrap the bulk fetch logic in useCallback to prevent infinite render loops in useEffect
+    const handleFetchAll = useCallback(async () => {
+        setIsLoading(true);
+        setErrorMessage(null);
+        try {
+            const data = await getUsers();
+            setUsers(data);
+        } catch (err: any) {
+            setErrorMessage(err.message || "Failed to retrieve directory records.");
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    // 2. TRIGGER ON MOUNT: Automatically load all users when the component opens
+    useEffect(() => {
+        // Only fetch if the user is looking at the view/directory tab
+        if (activeSubView === "view") {
+            handleFetchAll();
+        }
+    }, [activeSubView, handleFetchAll]);
+
+    // Action: Single user target search
+    const handleFetchSingle = async (e: React.SubmitEvent) => {
+        e.preventDefault();
+        if (!uuidQuery.trim()) return;
+
+        setIsLoading(true);
+        setErrorMessage(null);
+        try {
+            const res = await fetch(`http://localhost:8080/api/users/${uuidQuery}`);
+            if (!res.ok) throw new Error("User identifier not found in directory.");
+
+            const data = await res.json();
+            setUsers([data]);
+        } catch (err: any) {
+            setErrorMessage(err.message || "Lookup failed.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     return (
         <div className="space-y-6">
@@ -63,47 +104,80 @@ export default function UserManagementPanel() {
             {/* Dynamic Sub-View Render Area */}
             <div className="mt-4 transition-all duration-200">
 
+                {/* Runtime Feedback Errors */}
+                {errorMessage && (
+                    <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600 font-medium">
+                        {errorMessage}
+                    </div>
+                )}
+
                 {/* VIEW & SEARCH SUB-TAB */}
                 {activeSubView === "view" && (
                     <div className="space-y-6 animate-fadeIn">
-                        {/* UUID Real-Time Fetch Bar */}
-                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 flex flex-col md:flex-row gap-3 items-end md:items-center">
-                            <div className="grow w-full">
-                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">
-                                    Query System Directory by Identifier
-                                </label>
-                                <input
-                                    type="text"
-                                    placeholder="Enter standard 36-character canonical UUID..."
-                                    value={uuidQuery}
-                                    onChange={(e) => setUuidQuery(e.target.value)}
-                                    className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-black focus:outline-none focus:border-black placeholder-gray-400 transition-colors"
-                                />
+                        {/* Controls Container: Search Bar & Fetch Actions */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
+
+                            {/* Left: UUID Target Search Form */}
+                            <form onSubmit={handleFetchSingle} className="lg:col-span-2 flex flex-col sm:flex-row gap-2 items-end w-full">
+                                <div className="grow w-full">
+                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">
+                                        Query System Directory by Identifier
+                                    </label>
+                                    <input
+                                        type="text"
+                                        placeholder="Enter standard 36-character canonical UUID..."
+                                        value={uuidQuery}
+                                        onChange={(e) => setUuidQuery(e.target.value)}
+                                        className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-black focus:outline-none focus:border-black placeholder-gray-400 transition-colors"
+                                    />
+                                </div>
+                                <button
+                                    type="submit"
+                                    disabled={isLoading || !uuidQuery.trim()}
+                                    className="w-full sm:w-auto px-5 py-2 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed shrink-0 h-9.5"
+                                >
+                                    Search Identity
+                                </button>
+                            </form>
+
+                            {/* Right: Manual Pull Refresh Button */}
+                            <div className="flex items-end w-full">
+                                <button
+                                    type="button"
+                                    onClick={handleFetchAll}
+                                    disabled={isLoading}
+                                    className="w-full px-5 py-2 bg-white border border-gray-300 text-black text-sm font-semibold rounded-lg hover:bg-gray-50 shadow-sm transition-colors disabled:opacity-50 h-9.5"
+                                >
+                                    🔄 Sync Directory
+                                </button>
                             </div>
-                            <button className="w-full md:w-auto px-5 py-2 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors shrink-0">
-                                Execute Fetch
-                            </button>
                         </div>
 
-                        {/* Main Responsive Directory Table */}
+                        {/* Table Data Viewport Layout */}
                         <div className="w-full overflow-x-auto rounded-xl border border-gray-200 shadow-sm bg-white">
                             <table className="w-full text-left border-collapse">
                                 <thead>
                                 <tr className="bg-gray-50 border-b border-gray-200">
                                     <th className="p-4 text-xs font-bold uppercase tracking-wider text-gray-500">System UUID</th>
                                     <th className="p-4 text-xs font-bold uppercase tracking-wider text-gray-500">Identity Name</th>
-                                    <th className="p-4 text-xs font-bold uppercase tracking-wider text-gray-500">Email Address</th>
                                     <th className="p-4 text-xs font-bold uppercase tracking-wider text-gray-500">Assigned Claim</th>
-                                    <th className="p-4 text-xs font-bold uppercase tracking-wider text-gray-500">Status</th>
                                 </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 text-sm">
-                                {mockUsers.map((user) => (
-                                    <tr key={user.uuid} className="hover:bg-gray-50/70 transition-colors">
-                                        <td className="p-4 font-mono text-xs text-gray-400 select-all">{user.uuid}</td>
-                                        <td className="p-4 font-semibold text-black">{user.username}</td>
-                                        <td className="p-4 text-gray-600">{user.email}</td>
-                                        <td className="p-4">
+                                {isLoading ? (
+                                    [1, 2, 3].map((n) => (
+                                        <tr key={n} className="animate-pulse">
+                                            <td className="p-4"><div className="h-4 bg-gray-200 rounded w-3/4"></div></td>
+                                            <td className="p-4"><div className="h-4 bg-gray-200 rounded w-1/2"></div></td>
+                                            <td className="p-4"><div className="h-6 bg-gray-200 rounded-full w-20"></div></td>
+                                        </tr>
+                                    ))
+                                ) : users.length > 0 ? (
+                                    users.map((user) => (
+                                        <tr key={user.uuid} className="hover:bg-gray-50/70 transition-colors">
+                                            <td className="p-4 font-mono text-xs text-gray-400 select-all">{user.uuid}</td>
+                                            <td className="p-4 font-semibold text-black">{user.username}</td>
+                                            <td className="p-4">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium tracking-wide border ${
                             user.role === "ADMIN" ? "bg-red-50 border-red-200 text-red-700" :
                                 user.role === "NETWORK_ENGINEER" ? "bg-blue-50 border-blue-200 text-blue-700" :
@@ -111,15 +185,16 @@ export default function UserManagementPanel() {
                         }`}>
                           {user.role}
                         </span>
-                                        </td>
-                                        <td className="p-4">
-                        <span className="inline-flex items-center gap-1.5 text-xs text-green-700 font-medium">
-                          <span className="w-1.5 h-1.5 rounded-full bg-green-600 animate-pulse"></span>
-                            {user.status}
-                        </span>
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan={3} className="p-8 text-center text-sm text-gray-400">
+                                            No identities found in the database.
                                         </td>
                                     </tr>
-                                ))}
+                                )}
                                 </tbody>
                             </table>
                         </div>
