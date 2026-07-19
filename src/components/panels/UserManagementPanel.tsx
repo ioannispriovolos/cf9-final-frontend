@@ -2,6 +2,7 @@ import {useCallback, useEffect, useState} from "react";
 import type {User} from "@/schemas/users.ts";
 import {getUsers} from "@/api/users.ts";
 import * as React from "react";
+import {getCookie} from "@/utils/cookies.ts";
 
 export default function UserManagementPanel() {
     // Sub-navigation state to swap between actions cleanly
@@ -43,7 +44,15 @@ export default function UserManagementPanel() {
         setIsLoading(true);
         setErrorMessage(null);
         try {
-            const res = await fetch(`http://localhost:8080/api/users/${uuidQuery}`);
+            const token = getCookie("token");
+            const cleanUuid = uuidQuery.trim().toLowerCase();
+            const res = await fetch(`http://localhost:8080/api/v1/users/${cleanUuid}`, {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`,
+                },
+            });
             if (!res.ok) throw new Error("User identifier not found in directory.");
 
             const data = await res.json();
