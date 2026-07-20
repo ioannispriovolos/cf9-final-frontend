@@ -103,8 +103,6 @@ export default function UserManagementPanel() {
             setConfirmPassword("");
             setRoleSelection("VIEWER");
 
-            // Auto-pivot to refresh database layout view
-            setActiveSubView("view");
         } catch (err: any) {
             toast.error(err.message || "Identity provision rejected.");
         } finally {
