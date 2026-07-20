@@ -1,5 +1,17 @@
 import {z} from "zod";
 
+const passwordRegex = /^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&+=]).{8,}$/;
+
+// Role options available in your UI selector
+export type RoleOption = "ADMIN" | "NETWORK_ENGINEER" | "VIEWER";
+
+// Maps string options to backend numeric IDs
+export const ROLE_TO_ID_MAP: Record<RoleOption, number> = {
+    ADMIN: 1,
+    NETWORK_ENGINEER: 2,
+    VIEWER: 3,
+};
+
 export const userSchema = z.object({
     uuid: z.uuid({ message: "Invalid canonical UUID format" }),
     username: z.string().min(1, { message: "Username cannot be empty" }),
@@ -7,3 +19,13 @@ export const userSchema = z.object({
 });
 
 export type User = z.infer<typeof userSchema>;
+
+export const createUserSchema = z.object({
+    username: z.string().min(1, { message: "Username is required" }),
+    password: z.string().regex(passwordRegex, {
+        message: "Password must be at least 8 characters long and contain uppercase, lowercase, a number, and a special character (!@#$%^&+=)."
+    }),
+    roleId: z.number().int({ message: "Role selection must be an integer ID" }),
+});
+
+export type CreateUserPayload = z.infer<typeof createUserSchema>;
