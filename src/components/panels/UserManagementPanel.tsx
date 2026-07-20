@@ -268,11 +268,11 @@ export default function UserManagementPanel() {
                             {password.length > 0 && !isPasswordValid && (
                                 <div className="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200 text-xs space-y-1">
                                     <p className="font-bold text-gray-500 uppercase tracking-wider mb-1.5">Security Compliance:</p>
-                                    <div className={hasMinLength ? "text-green-600" : "text-gray-400"}>{hasMinLength ? "✓" : "○"} Minimum 8 characters</div>
-                                    <div className={hasUppercase ? "text-green-600" : "text-gray-400"}>{hasUppercase ? "✓" : "○"} At least one uppercase letter (A-Z)</div>
-                                    <div className={hasLowercase ? "text-green-600" : "text-gray-400"}>{hasLowercase ? "✓" : "○"} At least one lowercase letter (a-z)</div>
-                                    <div className={hasNumber ? "text-green-600" : "text-gray-400"}>{hasNumber ? "✓" : "○"} At least one numerical digit (0-9)</div>
-                                    <div className={hasSpecial ? "text-green-600" : "text-gray-400"}>{hasSpecial ? "✓" : "○"} Special character (!@#$%^&+=)</div>
+                                    <div className={hasMinLength ? "text-green-600" : "text-gray-400"}> Minimum 8 characters</div>
+                                    <div className={hasUppercase ? "text-green-600" : "text-gray-400"}> At least one uppercase letter (A-Z)</div>
+                                    <div className={hasLowercase ? "text-green-600" : "text-gray-400"}> At least one lowercase letter (a-z)</div>
+                                    <div className={hasNumber ? "text-green-600" : "text-gray-400"}> At least one numerical digit (0-9)</div>
+                                    <div className={hasSpecial ? "text-green-600" : "text-gray-400"}> Special character (!@#$%^&+=)</div>
                                 </div>
                             )}
                         </div>
