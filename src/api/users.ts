@@ -4,13 +4,9 @@ import {type CreateUserPayload, createUserSchema, type User, userSchema} from "@
 
 const API_URL = import.meta.env.VITE_API_URL;
 
-const token = getCookie("token");
-
-if (!token) {
-    throw new Error("Authentication token not found.");
-}
-
 export async function getUsers(): Promise<User[]> {
+
+    const token = getCookie("token");
 
     const res = await fetch(`${API_URL}/users/allusers`, {
         method: "GET",
@@ -29,6 +25,8 @@ export async function getUsers(): Promise<User[]> {
 }
 
 export async function createUser(payload: CreateUserPayload): Promise<void> {
+
+    const token = getCookie("token");
 
     const validatedData = createUserSchema.parse(payload);
 
