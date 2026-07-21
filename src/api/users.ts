@@ -2,7 +2,7 @@ import { z } from "zod";
 import { getCookie } from "@/utils/cookies";
 import {
     type CreateUserPayload,
-    createUserSchema,
+    createUserSchema, type DeleteUserPayload, deleteUserSchema,
     type UpdateUserPayload,
     updateUserSchema,
     type User,
@@ -83,5 +83,27 @@ export async function updateUser(payload: UpdateUserPayload): Promise<void> {
     if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.message ?? "Failed to update user.");
+    }
+}
+
+export async function deleteUser(payload: DeleteUserPayload): Promise<void> {
+
+    const token = getCookie("token");
+
+    const validated = deleteUserSchema.parse(payload);
+
+    const res = await fetch(`${API_URL}/users/${validated.uuid}`, {
+        method: "PATCH",
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    });
+
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+
+        throw new Error(
+            err.message ?? "Failed to soft delete user."
+        );
     }
 }

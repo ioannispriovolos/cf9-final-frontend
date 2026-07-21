@@ -1,6 +1,13 @@
 import {useCallback, useEffect, useState} from "react";
-import {ROLE_TO_ID_MAP, type RoleOption, type UpdateUserPayload, updateUserSchema, type User} from "@/schemas/users.ts";
-import {createUser, getUsers, updateUser} from "@/api/users.ts";
+import {
+    type DeleteUserPayload, deleteUserSchema,
+    ROLE_TO_ID_MAP,
+    type RoleOption,
+    type UpdateUserPayload,
+    updateUserSchema,
+    type User
+} from "@/schemas/users.ts";
+import {createUser, deleteUser, getUsers, updateUser} from "@/api/users.ts";
 import * as React from "react";
 import {getCookie} from "@/utils/cookies.ts";
 import {toast} from "sonner";
@@ -45,6 +52,18 @@ export default function UserManagementPanel() {
         defaultValues: {
             role: null,
         },
+    });
+
+    const {
+        register: registerDelete,
+        handleSubmit: handleSubmitDelete,
+        reset: resetDelete,
+        formState: {
+            errors: deleteErrors,
+            isSubmitting: isDeleting,
+        },
+    } = useForm<DeleteUserPayload>({
+        resolver: zodResolver(deleteUserSchema),
     });
 
     // 1. Wrap the bulk fetch logic in useCallback to prevent infinite render loops in useEffect
@@ -141,6 +160,29 @@ export default function UserManagementPanel() {
                 error instanceof Error
                     ? error.message
                     : "Failed to update user."
+            );
+        }
+    };
+
+    const onDeleteUser = async (data: DeleteUserPayload) => {
+        try {
+
+            await deleteUser(data);
+
+            toast.success("User soft deleted successfully.");
+
+            resetDelete();
+
+            await handleFetchAll();
+
+            setActiveSubView("view");
+
+        } catch (error) {
+
+            toast.error(
+                error instanceof Error
+                    ? error.message
+                    : "Soft delete failed."
             );
         }
     };
@@ -457,38 +499,75 @@ export default function UserManagementPanel() {
                     </div>
                 </form>
             )}
+            {/* DELETE USER SUB-TAB */}
+            {activeSubView === "delete" && (
+                <form
+                    onSubmit={handleSubmitDelete(onDeleteUser)}
+                    className="max-w-2xl bg-white border border-red-200 rounded-xl p-6 shadow-sm space-y-4 animate-fadeIn"
+                >
+                    <div className="flex items-start gap-3">
+                        <div>
+                            <h4 className="text-base font-bold text-red-900">
+                                Soft-De-provision Target Node
+                            </h4>
 
-                {/* DELETE USER SUB-TAB */}
-                {activeSubView === "delete" && (
-                    <div className="max-w-2xl bg-white border border-red-200 rounded-xl p-6 shadow-sm space-y-4 animate-fadeIn">
-                        <div className="flex items-start gap-3">
-                            <div>
-                                <h4 className="text-base font-bold text-red-900">Soft-De-provision Target Node</h4>
-                                <p className="text-xs text-red-700/80 mt-0.5">
-                                    Soft deleting removes active token claims and locks SSH interface connectivity, flags the user as inactive in the database, but retains records for audits.
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="space-y-3 pt-2">
-                            <div>
-                                <label className="block text-xs font-bold text-red-800/80 uppercase mb-1">Target Account System UUID</label>
-                                <input type="text" placeholder="Enter target account UUID..." className="w-full bg-white border border-red-200 rounded-lg p-2 text-sm font-mono text-black focus:outline-none focus:border-red-500 placeholder-red-200" />
-                            </div>
-                            <div className="flex justify-end gap-3 pt-2">
-                                <button
-                                    onClick={() => setActiveSubView("view")}
-                                    className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                                <button className="px-5 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors">
-                                    Revoke & Soft Delete
-                                </button>
-                            </div>
+                            <p className="text-xs text-red-700/80 mt-0.5">
+                                Soft deleting removes active token claims and locks SSH
+                                interface connectivity, flags the user as inactive in the
+                                database, but retains records for audits.
+                            </p>
                         </div>
                     </div>
-                )}
+
+                    <div className="space-y-3 pt-2">
+
+                        <div>
+
+                            <label className="block text-xs font-bold text-red-800/80 uppercase mb-1">
+                                Target Account System UUID
+                            </label>
+
+                            <input
+                                type="text"
+                                placeholder="Enter target account UUID..."
+                                {...registerDelete("uuid")}
+                                className="w-full bg-white border border-red-200 rounded-lg p-2 text-sm font-mono text-black focus:outline-none focus:border-red-500 placeholder-red-200"
+                            />
+
+                            {deleteErrors.uuid && (
+                                <p className="text-red-500 text-sm mt-1">
+                                    {deleteErrors.uuid.message}
+                                </p>
+                            )}
+
+                        </div>
+
+                        <div className="flex justify-end gap-3 pt-2">
+
+                            <button
+                                type="button"
+                                onClick={() => setActiveSubView("view")}
+                                className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                            >
+                                Cancel
+                            </button>
+
+                            <button
+                                type="submit"
+                                disabled={isDeleting}
+                                className="px-5 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                            >
+                                {isDeleting
+                                    ? "Deleting..."
+                                    : "Revoke & Soft Delete"}
+                            </button>
+
+                        </div>
+
+                    </div>
+                </form>
+            )}
+
         </div>
     );
 }

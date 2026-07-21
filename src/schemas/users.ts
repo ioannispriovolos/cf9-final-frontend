@@ -42,3 +42,11 @@ export const updateUserSchema = z.object({
 });
 
 export type UpdateUserPayload = z.infer<typeof updateUserSchema>;
+
+export const deleteUserSchema = z.object({
+    uuid: z.uuid({
+        message: "Please enter a valid UUID.",
+    }),
+});
+
+export type DeleteUserPayload = z.infer<typeof deleteUserSchema>;
