@@ -1,9 +1,11 @@
 import {useCallback, useEffect, useState} from "react";
-import {ROLE_TO_ID_MAP, type RoleOption, type User} from "@/schemas/users.ts";
-import {createUser, getUsers} from "@/api/users.ts";
+import {ROLE_TO_ID_MAP, type RoleOption, type UpdateUserPayload, updateUserSchema, type User} from "@/schemas/users.ts";
+import {createUser, getUsers, updateUser} from "@/api/users.ts";
 import * as React from "react";
 import {getCookie} from "@/utils/cookies.ts";
 import {toast} from "sonner";
+import {useForm} from "react-hook-form";
+import {zodResolver} from "@hookform/resolvers/zod";
 
 export default function UserManagementPanel() {
 
@@ -29,6 +31,21 @@ export default function UserManagementPanel() {
     const hasNumber = /[0-9]/.test(password);
     const hasSpecial = /[!@#$%^&+=]/.test(password);
     const isPasswordValid = hasMinLength && hasUppercase && hasLowercase && hasNumber && hasSpecial;
+
+    const {
+        register: registerUpdate,
+        handleSubmit: handleSubmitUpdate,
+        reset: resetUpdate,
+        formState: {
+            errors: updateErrors,
+            isSubmitting: isUpdating,
+        },
+    } = useForm<UpdateUserPayload>({
+        resolver: zodResolver(updateUserSchema),
+        defaultValues: {
+            role: null,
+        },
+    });
 
     // 1. Wrap the bulk fetch logic in useCallback to prevent infinite render loops in useEffect
     const handleFetchAll = useCallback(async () => {
@@ -107,6 +124,24 @@ export default function UserManagementPanel() {
             toast.error(err.message || "Identity provision rejected.");
         } finally {
             setIsSubmitting(false);
+        }
+    };
+
+    const onUpdateUser = async (data: UpdateUserPayload) => {
+        try {
+            await updateUser(data);
+
+            toast.success("User updated successfully.");
+
+            resetUpdate();
+
+            await handleFetchAll();
+        } catch (error) {
+            toast.error(
+                error instanceof Error
+                    ? error.message
+                    : "Failed to update user."
+            );
         }
     };
 
@@ -329,36 +364,99 @@ export default function UserManagementPanel() {
                 </form>
             )}
 
-                {/* MODIFY USER SUB-TAB */}
-                {activeSubView === "modify" && (
-                    <form onSubmit={(e) => e.preventDefault()} className="max-w-2xl bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-4 animate-fadeIn">
-                        <h4 className="text-base font-bold text-black border-b pb-2 border-gray-100">Update Existing Identity Properties</h4>
+            {/* MODIFY USER SUB-TAB */}
+            {activeSubView === "modify" && (
+                <form
+                    onSubmit={handleSubmitUpdate(onUpdateUser)}
+                    className="max-w-2xl bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-4 animate-fadeIn"
+                >
+                    <h4 className="text-base font-bold text-black border-b pb-2 border-gray-100">
+                        Update Existing Identity Properties
+                    </h4>
+
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                            Target Account UUID
+                        </label>
+
+                        <input
+                            type="text"
+                            placeholder="Select or type the target account system ID..."
+                            {...registerUpdate("uuid")}
+                            className="w-full bg-white border border-gray-300 rounded-lg p-2 text-sm font-mono text-black focus:outline-none focus:border-black"
+                        />
+
+                        {updateErrors.uuid && (
+                            <p className="text-red-500 text-sm mt-1">
+                                {updateErrors.uuid.message}
+                            </p>
+                        )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50/50 p-4 rounded-lg border border-dashed border-gray-200">
+
                         <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Target Account UUID</label>
-                            <input type="text" placeholder="Select or type the target account system ID..." className="w-full bg-white border border-gray-300 rounded-lg p-2 text-sm font-mono text-black focus:outline-none focus:border-black" />
+                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">
+                                New Username (Optional)
+                            </label>
+
+                            <input
+                                type="text"
+                                {...registerUpdate("username")}
+                                className="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm text-black focus:outline-none focus:border-black"
+                            />
+
+                            {updateErrors.username && (
+                                <p className="text-red-500 text-sm mt-1">
+                                    {updateErrors.username.message}
+                                </p>
+                            )}
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50/50 p-4 rounded-lg border border-dashed border-gray-200">
-                            <div>
-                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">New Username (Optional)</label>
-                                <input type="text" className="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm text-black focus:outline-none focus:border-black" />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Override Role Claim</label>
-                                <select className="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm text-black focus:outline-none focus:border-black">
-                                    <option value="">Keep Existing Role</option>
-                                    <option value="VIEWER">VIEWER</option>
-                                    <option value="NETWORK_ENGINEER">NETWORK_ENGINEER</option>
-                                    <option value="ADMIN">ADMIN</option>
-                                </select>
-                            </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">
+                                Override Role Claim
+                            </label>
+
+                            <select
+                                {...registerUpdate("role", {
+                                    setValueAs: (value) =>
+                                        value === "" ? null : value,
+                                })}
+                                className="w-full bg-white border border-gray-200 rounded-lg p-2 text-sm text-black focus:outline-none focus:border-black"
+                            >
+                                <option value="">
+                                    Keep Existing Role
+                                </option>
+
+                                <option value="VIEWER">
+                                    VIEWER
+                                </option>
+
+                                <option value="NETWORK_ENGINEER">
+                                    NETWORK_ENGINEER
+                                </option>
+
+                                <option value="ADMIN">
+                                    ADMIN
+                                </option>
+                            </select>
                         </div>
-                        <div className="pt-2 flex justify-end">
-                            <button type="submit" className="px-5 py-2 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors">
-                                Save Mutation Changes
-                            </button>
-                        </div>
-                    </form>
-                )}
+                    </div>
+
+                    <div className="pt-2 flex justify-end">
+                        <button
+                            type="submit"
+                            disabled={isUpdating}
+                            className="px-5 py-2 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50"
+                        >
+                            {isUpdating
+                                ? "Updating..."
+                                : "Save Mutation Changes"}
+                        </button>
+                    </div>
+                </form>
+            )}
 
                 {/* DELETE USER SUB-TAB */}
                 {activeSubView === "delete" && (
