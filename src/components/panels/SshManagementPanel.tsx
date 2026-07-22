@@ -1,17 +1,6 @@
 import React, { useState } from "react";
 import { Terminal, Server, Play, Plus, CheckSquare, Square, Trash2, Cpu, ShieldCheck } from "lucide-react";
-
-// --- Types matching database schema ---
-export interface Device {
-    id?: number;
-    title: string;
-    manufacturer: string;
-    model: string;
-    ipAddress: string;
-    sshPort: number;
-    username: string;
-    password?: string;
-}
+import type {Device} from "@/schemas/devices.ts";
 
 export default function SshManagementPanel() {
     // Tab State
@@ -335,7 +324,8 @@ export default function SshManagementPanel() {
                             <thead>
                             <tr className="bg-gray-50 border-b border-gray-200">
                                 <th className="p-3.5 text-xs font-bold uppercase text-gray-500">Title</th>
-                                <th className="p-3.5 text-xs font-bold uppercase text-gray-500">Hardware</th>
+                                <th className="p-3.5 text-xs font-bold uppercase text-gray-500">Manufacturer</th>
+                                <th className="p-3.5 text-xs font-bold uppercase text-gray-500">Model</th>
                                 <th className="p-3.5 text-xs font-bold uppercase text-gray-500">IP Address</th>
                                 <th className="p-3.5 text-xs font-bold uppercase text-gray-500">Port</th>
                                 <th className="p-3.5 text-xs font-bold uppercase text-gray-500">Username</th>
