@@ -32,7 +32,7 @@ export type CreateUserPayload = z.infer<typeof createUserSchema>;
 
 export const updateUserSchema = z.object({
     uuid: z.uuid(),
-    username: z.string().min(1).optional(),
+    username: z.string().min(2).max(20).optional(),
     role: z.union([
         z.literal("ADMIN"),
         z.literal("NETWORK_ENGINEER"),
