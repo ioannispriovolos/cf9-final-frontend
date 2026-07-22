@@ -50,3 +50,24 @@ export const deleteUserSchema = z.object({
 });
 
 export type DeleteUserPayload = z.infer<typeof deleteUserSchema>;
+
+export const UserReadOnlySchema = z.object({
+    uuid: z.string(),
+    username: z.string(),
+    role: z.enum(["ADMIN", "NETWORK_ENGINEER", "VIEWER"]).catch("VIEWER"),
+});
+
+export type UserPaginated = z.infer<typeof UserReadOnlySchema>;
+
+// Matches PageResponseDTO<T>
+export const PageResponseSchema = z.object({
+    content: z.array(UserReadOnlySchema),
+    page: z.number(),
+    size: z.number(),
+    totalElements: z.number(),
+    totalPages: z.number(),
+    first: z.boolean(),
+    last: z.boolean(),
+});
+
+export type PageResponse = z.infer<typeof PageResponseSchema>;

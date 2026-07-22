@@ -7,13 +7,13 @@ import {
     updateUserSchema,
     type User
 } from "@/schemas/users.ts";
-import {createUser, deleteUser, getUsers, updateUser} from "@/api/users.ts";
+import {createUser, deleteUser, getUsersPaginated, updateUser} from "@/api/users.ts";
 import * as React from "react";
 import {getCookie} from "@/utils/cookies.ts";
 import {toast} from "sonner";
 import {useForm} from "react-hook-form";
 import {zodResolver} from "@hookform/resolvers/zod";
-import {DatabaseSearch, UserPlus, UserRoundPen, UserRoundX} from "lucide-react";
+import {ArrowLeftToLine, ArrowRightToLine, DatabaseSearch, UserPlus, UserRoundPen, UserRoundX} from "lucide-react";
 
 export default function UserManagementPanel() {
 
@@ -39,6 +39,10 @@ export default function UserManagementPanel() {
     const hasNumber = /[0-9]/.test(password);
     const hasSpecial = /[!@#$%^&+=]/.test(password);
     const isPasswordValid = hasMinLength && hasUppercase && hasLowercase && hasNumber && hasSpecial;
+
+    const [currentPage, setCurrentPage] = useState(0);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalElements, setTotalElements] = useState(0);
 
     const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     const isUsernameValid = username.trim().length >= 2 && username.trim().length <= 20;
@@ -92,27 +96,30 @@ export default function UserManagementPanel() {
 
     const uuid = watch("uuid") ?? "";
 
-    // 1. Wrap the bulk fetch logic in useCallback to prevent infinite render loops in useEffect
-    const handleFetchAll = useCallback(async () => {
+    const handleFetchAllPaginated = useCallback(async () => {
         setIsLoading(true);
         setErrorMessage(null);
         try {
-            const data = await getUsers();
-            setUsers(data);
+            // Backend defaults size to 5, but we explicitly pass it
+            const data = await getUsersPaginated(currentPage, 5, "username,asc");
+
+            setUsers(data.content);         // Extract the 5 records
+            setTotalPages(data.totalPages); // Store page count
+            setTotalElements(data.totalElements);
         } catch (err: any) {
             setErrorMessage(err.message || "Failed to retrieve directory records.");
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [currentPage]);
 
     // 2. TRIGGER ON MOUNT: Automatically load all users when the component opens
     useEffect(() => {
         // Only fetch if the user is looking at the view/directory tab
         if (activeSubView === "view") {
-            handleFetchAll();
+            handleFetchAllPaginated();
         }
-    }, [activeSubView, handleFetchAll]);
+    }, [activeSubView, handleFetchAllPaginated]);
 
     // Action: Single user target search
     const handleFetchSingle = async (e: React.SubmitEvent) => {
@@ -180,7 +187,7 @@ export default function UserManagementPanel() {
 
             resetUpdate();
 
-            await handleFetchAll();
+            await handleFetchAllPaginated();
         } catch (error) {
             toast.error(
                 error instanceof Error
@@ -210,7 +217,7 @@ export default function UserManagementPanel() {
 
             resetDelete();
 
-            await handleFetchAll();
+            await handleFetchAllPaginated();
 
             setActiveSubView("view");
 
@@ -230,7 +237,7 @@ export default function UserManagementPanel() {
             <div className="border-b border-gray-100 pb-4">
                 <h3 className="text-2xl font-black text-black tracking-tight">User Operations Console</h3>
                 <p className="text-sm text-gray-500 mt-1">
-                    Synchronized administrative terminal to provision identities, modify properties, and manage security claims.
+                    Synchronized administrative terminal to create users, modify users, and manage authorization.
                 </p>
             </div>
 
@@ -240,13 +247,13 @@ export default function UserManagementPanel() {
                     <DatabaseSearch className="h-4 w-4"/>Directory & Search
                 </button>
                 <button onClick={() => setActiveSubView("create")} className={`pb-3 px-2 text-sm font-medium transition-all ${activeSubView === "create" ? "border-b-2 border-black text-black" : "text-gray-400 hover:text-black"}`}>
-                    <UserPlus className="h-4 w-4"/>Provision User
+                    <UserPlus className="h-4 w-4"/>Create User
                 </button>
                 <button onClick={() => setActiveSubView("modify")} className={`pb-3 px-2 text-sm font-medium transition-all ${activeSubView === "modify" ? "border-b-2 border-black text-black" : "text-gray-400 hover:text-black"}`}>
-                    <UserRoundPen className="h-4 w-4"/>Modify Identity
+                    <UserRoundPen className="h-4 w-4"/>Modify User
                 </button>
                 <button onClick={() => setActiveSubView("delete")} className={`pb-3 px-2 text-sm font-medium transition-all ${activeSubView === "delete" ? "border-b-2 border-black text-black" : "text-gray-400 hover:text-black"}`}>
-                    <UserRoundX className="h-4 w-4"/>De-provisioning
+                    <UserRoundX className="h-4 w-4"/>Soft Delete User
                 </button>
             </div>
 
@@ -290,7 +297,7 @@ export default function UserManagementPanel() {
                         <div className="flex items-end w-full">
                             <button
                                 type="button"
-                                onClick={handleFetchAll}
+                                onClick={handleFetchAllPaginated}
                                 disabled={isLoading}
                                 className="w-full px-5 py-2 bg-white border border-gray-300 text-black text-sm font-semibold rounded-lg hover:bg-gray-50 shadow-sm transition-colors disabled:opacity-50 h-9.5"
                             >
@@ -365,6 +372,32 @@ export default function UserManagementPanel() {
                             )}
                             </tbody>
                         </table>
+                        <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 rounded-b-xl">
+                            <div className="text-xs text-gray-500 font-medium">
+                                Showing page <span className="font-bold text-black">{currentPage + 1}</span> of{" "}
+                                <span className="font-bold text-black">{totalPages || 1}</span> ({totalElements} total entries)
+                            </div>
+
+                            <div className="flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 0))}
+                                    disabled={currentPage === 0 || isLoading}
+                                    className="px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-semibold text-black hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    <ArrowLeftToLine />Previous
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setCurrentPage((prev) => prev + 1)}
+                                    disabled={currentPage + 1 >= totalPages || isLoading}
+                                    className="px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-semibold text-black hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    <ArrowRightToLine />Next
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
@@ -396,13 +429,13 @@ export default function UserManagementPanel() {
                             {/* Username Inline Feedback */}
                             {username.length > 0 && !isUsernameValid && (
                                 <span className="text-xs font-medium text-amber-600 mt-1 block">
-                        Must be between 2 and 20 characters ({username.trim().length}/20)
-                    </span>
-                            )}
-                            {username.length > 0 && isUsernameValid && (
-                                <span className="text-xs font-medium text-green-600 mt-1 block">
-                        ✓ Valid username length
-                    </span>
+                                    Must be between 2 and 20 characters ({username.trim().length}/20)
+                                </span>
+                                        )}
+                                        {username.length > 0 && isUsernameValid && (
+                                            <span className="text-xs font-medium text-green-600 mt-1 block">
+                                    Valid username length
+                                </span>
                             )}
                         </div>
 

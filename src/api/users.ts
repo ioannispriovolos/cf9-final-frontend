@@ -2,7 +2,7 @@ import { z } from "zod";
 import { getCookie } from "@/utils/cookies";
 import {
     type CreateUserPayload,
-    createUserSchema, type DeleteUserPayload, deleteUserSchema,
+    createUserSchema, type DeleteUserPayload, deleteUserSchema, type PageResponse, PageResponseSchema,
     type UpdateUserPayload,
     updateUserSchema,
     type User,
@@ -106,4 +106,32 @@ export async function deleteUser(payload: DeleteUserPayload): Promise<void> {
             err.message ?? "Failed to soft delete user."
         );
     }
+}
+
+export async function getUsersPaginated(
+    page = 0,
+    size = 5,
+    sort = "username,asc"
+): Promise<PageResponse> {
+    const token = getCookie("token");
+
+    // Endpoint matching @GetMapping("/allusers") with Pageable query parameters
+    const url = `${API_URL}/users/allusers?page=${page}&size=${size}&sort=${sort}`;
+
+    const res = await fetch(url, {
+        method: "GET",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+        },
+    });
+
+    if (!res.ok) {
+        throw new Error("Failed to retrieve paginated user directory.");
+    }
+
+    const rawData = await res.json();
+
+    // Parses response against your PageResponseDTO structure
+    return PageResponseSchema.parse(rawData);
 }
