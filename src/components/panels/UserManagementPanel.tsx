@@ -48,6 +48,8 @@ export default function UserManagementPanel() {
     const isUsernameValid = username.trim().length >= 2 && username.trim().length <= 20;
     const isFormValid = isUsernameValid && isPasswordValid && password === confirmPassword;
 
+    const API_URL = import.meta.env.VITE_API_URL;
+
     const {
         register: registerUpdate,
         handleSubmit: handleSubmitUpdate,
@@ -131,14 +133,19 @@ export default function UserManagementPanel() {
         try {
             const token = getCookie("token");
             const cleanUuid = uuidQuery.trim().toLowerCase();
-            const res = await fetch(`http://localhost:8080/api/v1/users/${cleanUuid}`, {
+            const res = await fetch(`${API_URL}/users/${cleanUuid}`, {
                 method: "GET",
                 headers: {
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${token}`,
                 },
             });
-            if (!res.ok) throw new Error("User identifier not found in directory.");
+            if (!res.ok) {
+                // Handle inline without throwing
+                setErrorMessage("User identifier not found in directory.");
+                setIsLoading(false);
+                return;
+            }
 
             const data = await res.json();
             setUsers([data]);
