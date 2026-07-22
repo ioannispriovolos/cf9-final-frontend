@@ -2,6 +2,7 @@ import { useState } from "react";
 import UserManagementPanel from "../components/panels/UserManagementPanel";
 import SshManagementPanel from "../components/panels/SshManagementPanel";
 import MetricsStatsPanel from "../components/panels/MetricsStatsPanel";
+import {ChartLine, Network, UserRound} from "lucide-react";
 
 export default function AdminDashboardPage() {
     // Simple string state to track which panel to show
@@ -19,7 +20,7 @@ export default function AdminDashboardPage() {
                         activeTab === "users" ? "bg-black text-white font-medium" : "hover:bg-gray-200 text-gray-700"
                     }`}
                 >
-                    User Management
+                    <UserRound />User Management
                 </button>
 
                 <button
@@ -28,7 +29,7 @@ export default function AdminDashboardPage() {
                         activeTab === "ssh" ? "bg-black text-white font-medium" : "hover:bg-gray-200 text-gray-700"
                     }`}
                 >
-                    SSH Management
+                    <Network />SSH Management
                 </button>
 
                 <button
@@ -37,7 +38,7 @@ export default function AdminDashboardPage() {
                         activeTab === "metrics" ? "bg-black text-white font-medium" : "hover:bg-gray-200 text-gray-700"
                     }`}
                 >
-                    System Metrics
+                    <ChartLine />System Metrics
                 </button>
             </aside>
 
