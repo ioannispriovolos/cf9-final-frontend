@@ -13,6 +13,7 @@ import {getCookie} from "@/utils/cookies.ts";
 import {toast} from "sonner";
 import {useForm} from "react-hook-form";
 import {zodResolver} from "@hookform/resolvers/zod";
+import {DatabaseSearch, UserPlus, UserRoundPen, UserRoundX} from "lucide-react";
 
 export default function UserManagementPanel() {
 
@@ -70,6 +71,24 @@ export default function UserManagementPanel() {
     } = useForm<DeleteUserPayload>({
         resolver: zodResolver(deleteUserSchema),
     });
+
+    const handleEditUser = (uuid: string) => {
+        resetUpdate({
+            uuid,
+            username: "",
+            role: null,
+        });
+
+        setActiveSubView("modify");
+    };
+
+    const handleDeleteUser = (uuid: string) => {
+        resetDelete({
+            uuid,
+        });
+
+        setActiveSubView("delete");
+    };
 
     const uuid = watch("uuid") ?? "";
 
@@ -218,22 +237,22 @@ export default function UserManagementPanel() {
             {/* Sub-Tabs Navigation Segment */}
             <div className="flex flex-wrap gap-2 border-b border-gray-200 pb-px">
                 <button onClick={() => setActiveSubView("view")} className={`pb-3 px-2 text-sm font-medium transition-all ${activeSubView === "view" ? "border-b-2 border-black text-black" : "text-gray-400 hover:text-black"}`}>
-                    Directory & Search
+                    <DatabaseSearch className="h-4 w-4"/>Directory & Search
                 </button>
                 <button onClick={() => setActiveSubView("create")} className={`pb-3 px-2 text-sm font-medium transition-all ${activeSubView === "create" ? "border-b-2 border-black text-black" : "text-gray-400 hover:text-black"}`}>
-                    Provision User
+                    <UserPlus className="h-4 w-4"/>Provision User
                 </button>
                 <button onClick={() => setActiveSubView("modify")} className={`pb-3 px-2 text-sm font-medium transition-all ${activeSubView === "modify" ? "border-b-2 border-black text-black" : "text-gray-400 hover:text-black"}`}>
-                    Modify Identity
+                    <UserRoundPen className="h-4 w-4"/>Modify Identity
                 </button>
                 <button onClick={() => setActiveSubView("delete")} className={`pb-3 px-2 text-sm font-medium transition-all ${activeSubView === "delete" ? "border-b-2 border-black text-black" : "text-gray-400 hover:text-black"}`}>
-                    De-provisioning
+                    <UserRoundX className="h-4 w-4"/>De-provisioning
                 </button>
             </div>
 
             {/* System Error Notification Toast Bar */}
             {errorMessage && (
-                <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600 font-medium">
+                <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-custom-dark-red font-medium">
                     {errorMessage}
                 </div>
             )}
@@ -252,7 +271,7 @@ export default function UserManagementPanel() {
                                 </label>
                                 <input
                                     type="text"
-                                    placeholder="Enter standard 36-character canonical UUID..."
+                                    placeholder="Enter target account UUID..."
                                     value={uuidQuery}
                                     onChange={(e) => setUuidQuery(e.target.value)}
                                     className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm text-black focus:outline-none focus:border-black placeholder-gray-400 transition-colors"
@@ -288,6 +307,8 @@ export default function UserManagementPanel() {
                                 <th className="p-4 text-xs font-bold uppercase tracking-wider text-gray-500">System UUID</th>
                                 <th className="p-4 text-xs font-bold uppercase tracking-wider text-gray-500">Identity Name</th>
                                 <th className="p-4 text-xs font-bold uppercase tracking-wider text-gray-500">Assigned Claim</th>
+                                <th className="p-4 text-xs font-bold uppercase tracking-wider text-gray-500 text-center">Edit</th>
+                                <th className="p-4 text-xs font-bold uppercase tracking-wider text-gray-500 text-center">Delete</th>
                             </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 text-sm">
@@ -305,13 +326,33 @@ export default function UserManagementPanel() {
                                         <td className="p-4 font-mono text-xs text-gray-400 select-all">{user.uuid}</td>
                                         <td className="p-4 font-semibold text-black">{user.username}</td>
                                         <td className="p-4">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium tracking-wide border ${
-                            user.role === "ADMIN" ? "bg-red-50 border-red-200 text-red-700" :
-                                user.role === "NETWORK_ENGINEER" ? "bg-blue-50 border-blue-200 text-blue-700" :
-                                    "bg-gray-50 border-gray-200 text-gray-700"
-                        }`}>
-                          {user.role}
-                        </span>
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium tracking-wide border ${
+                                                user.role === "ADMIN" ? "bg-red-50 border-red-200 text-custom-dark-red" :
+                                                    user.role === "NETWORK_ENGINEER" ? "bg-blue-50 border-blue-200 text-blue-700" :
+                                                        "bg-gray-50 border-gray-200 text-gray-700"
+                                            }`}>
+                                              {user.role}
+                                            </span>
+                                        </td>
+                                        <td className="p-4 text-center">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleEditUser(user.uuid)}
+                                                className="px-3 py-1 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 transition-colors"
+                                            >
+                                                <UserRoundPen />
+                                            </button>
+                                        </td>
+
+                                        {/* NEW DELETE COLUMN */}
+                                        <td className="p-4 text-center">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteUser(user.uuid)}
+                                                className="px-3 py-1 bg-custom-dark-red text-white rounded-lg text-xs font-medium hover:bg-red-700 transition-colors"
+                                            >
+                                                <UserRoundX />
+                                            </button>
                                         </td>
                                     </tr>
                                 ))
@@ -410,7 +451,7 @@ export default function UserManagementPanel() {
                                 }`}
                             />
                             {confirmPassword && password !== confirmPassword && (
-                                <span className="text-xs font-medium text-red-600 mt-1 block">✕ Passwords do not match</span>
+                                <span className="text-xs font-medium text-custom-dark-red mt-1 block">✕ Passwords do not match</span>
                             )}
                             {confirmPassword && password === confirmPassword && (
                                 <span className="text-xs font-medium text-green-600 mt-1 block">✓ Passwords match</span>
@@ -461,13 +502,13 @@ export default function UserManagementPanel() {
 
                         <input
                             type="text"
-                            placeholder="Select or type the target account system ID..."
+                            placeholder="Enter target account UUID..."
                             {...registerUpdate("uuid")}
                             className="w-full bg-white border border-gray-300 rounded-lg p-2 text-sm font-mono text-black focus:outline-none focus:border-black"
                         />
 
                         {updateErrors.uuid && (
-                            <p className="text-red-500 text-sm mt-1">
+                            <p className="text-custom-dark-red text-sm mt-1">
                                 {updateErrors.uuid.message}
                             </p>
                         )}
@@ -487,7 +528,7 @@ export default function UserManagementPanel() {
                             />
 
                             {updateErrors.username && (
-                                <p className="text-red-500 text-sm mt-1">
+                                <p className="text-custom-dark-red text-sm mt-1">
                                     {updateErrors.username.message}
                                 </p>
                             )}
@@ -545,7 +586,7 @@ export default function UserManagementPanel() {
                 >
                     <div className="flex items-start gap-3">
                         <div>
-                            <h4 className="text-base font-bold text-red-900">
+                            <h4 className="text-base font-bold text-custom-dark-red">
                                 Soft-De-provision Target Node
                             </h4>
 
@@ -573,7 +614,7 @@ export default function UserManagementPanel() {
                             />
 
                             {deleteErrors.uuid && (
-                                <p className="text-red-500 text-sm mt-1">
+                                <p className="text-custom-dark-red text-sm mt-1">
                                     {deleteErrors.uuid.message}
                                 </p>
                             )}
@@ -584,7 +625,7 @@ export default function UserManagementPanel() {
                             <button
                                 type="submit"
                                 disabled={isDeleting || !UUID_REGEX.test(uuid.trim())}
-                                className="px-5 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed shrink-0 h-9.5"
+                                className="px-5 py-2 bg-custom-dark-red text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed shrink-0 h-9.5"
                             >
                                 {isDeleting
                                     ? "Deleting..."
