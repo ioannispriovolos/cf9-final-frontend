@@ -21,7 +21,7 @@ export const userSchema = z.object({
 export type User = z.infer<typeof userSchema>;
 
 export const createUserSchema = z.object({
-    username: z.string().min(1, { message: "Username is required" }),
+    username: z.string().min(2, { message: "Username is required" }).max(20),
     password: z.string().regex(passwordRegex, {
         message: "Password must be at least 8 characters long and contain uppercase, lowercase, a number, and a special character (!@#$%^&+=)."
     }),

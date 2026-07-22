@@ -39,6 +39,10 @@ export default function UserManagementPanel() {
     const hasSpecial = /[!@#$%^&+=]/.test(password);
     const isPasswordValid = hasMinLength && hasUppercase && hasLowercase && hasNumber && hasSpecial;
 
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const isUsernameValid = username.trim().length >= 2 && username.trim().length <= 20;
+    const isFormValid = isUsernameValid && isPasswordValid && password === confirmPassword;
+
     const {
         register: registerUpdate,
         handleSubmit: handleSubmitUpdate,
@@ -58,6 +62,7 @@ export default function UserManagementPanel() {
         register: registerDelete,
         handleSubmit: handleSubmitDelete,
         reset: resetDelete,
+        watch,
         formState: {
             errors: deleteErrors,
             isSubmitting: isDeleting,
@@ -65,6 +70,8 @@ export default function UserManagementPanel() {
     } = useForm<DeleteUserPayload>({
         resolver: zodResolver(deleteUserSchema),
     });
+
+    const uuid = watch("uuid") ?? "";
 
     // 1. Wrap the bulk fetch logic in useCallback to prevent infinite render loops in useEffect
     const handleFetchAll = useCallback(async () => {
@@ -165,6 +172,17 @@ export default function UserManagementPanel() {
     };
 
     const onDeleteUser = async (data: DeleteUserPayload) => {
+
+        const confirmed = window.confirm(
+            "Are you sure you want to soft delete this user?\n\n" +
+            "The account will be marked as inactive and access will be revoked, " +
+            "but the record will be retained for audit purposes."
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
         try {
 
             await deleteUser(data);
@@ -242,7 +260,7 @@ export default function UserManagementPanel() {
                             </div>
                             <button
                                 type="submit"
-                                disabled={isLoading || !uuidQuery.trim()}
+                                disabled={isLoading || !UUID_REGEX.test(uuidQuery.trim())}
                                 className="w-full sm:w-auto px-5 py-2 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed shrink-0 h-9.5"
                             >
                                 Search Identity
@@ -316,15 +334,35 @@ export default function UserManagementPanel() {
                     <h4 className="text-base font-bold text-black border-b pb-2 border-gray-100">Provision a New Operator Account</h4>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {/* Username Input Block with Validation */}
                         <div>
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Username</label>
                             <input
                                 type="text"
                                 value={username}
                                 onChange={(e) => setUsername(e.target.value)}
+                                placeholder="2–20 characters"
                                 required
-                                className="w-full bg-white border border-gray-300 rounded-lg p-2 text-sm text-black focus:outline-none focus:border-black"
+                                className={`w-full bg-white border rounded-lg p-2 text-sm text-black focus:outline-none transition-colors ${
+                                    username === ""
+                                        ? "border-gray-300 focus:border-black"
+                                        : isUsernameValid
+                                            ? "border-green-500 focus:border-green-600 bg-green-50/20"
+                                            : "border-amber-400 focus:border-amber-500 bg-amber-50/20"
+                                }`}
                             />
+
+                            {/* Username Inline Feedback */}
+                            {username.length > 0 && !isUsernameValid && (
+                                <span className="text-xs font-medium text-amber-600 mt-1 block">
+                        Must be between 2 and 20 characters ({username.trim().length}/20)
+                    </span>
+                            )}
+                            {username.length > 0 && isUsernameValid && (
+                                <span className="text-xs font-medium text-green-600 mt-1 block">
+                        ✓ Valid username length
+                    </span>
+                            )}
                         </div>
 
                         {/* Input Password Credentials Block */}
@@ -397,7 +435,7 @@ export default function UserManagementPanel() {
                     <div className="pt-2 flex justify-end">
                         <button
                             type="submit"
-                            disabled={isSubmitting || !isPasswordValid || password !== confirmPassword}
+                            disabled={isSubmitting || !isFormValid}
                             className="px-5 py-2 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                         >
                             {isSubmitting ? "Processing Request..." : "Commit & Register User"}
@@ -439,7 +477,7 @@ export default function UserManagementPanel() {
 
                         <div>
                             <label className="block text-xs font-bold text-gray-400 uppercase mb-1">
-                                New Username (Optional)
+                                New Username
                             </label>
 
                             <input
@@ -543,31 +581,19 @@ export default function UserManagementPanel() {
                         </div>
 
                         <div className="flex justify-end gap-3 pt-2">
-
-                            <button
-                                type="button"
-                                onClick={() => setActiveSubView("view")}
-                                className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                            >
-                                Cancel
-                            </button>
-
                             <button
                                 type="submit"
-                                disabled={isDeleting}
-                                className="px-5 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                                disabled={isDeleting || !UUID_REGEX.test(uuid.trim())}
+                                className="px-5 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed shrink-0 h-9.5"
                             >
                                 {isDeleting
                                     ? "Deleting..."
                                     : "Revoke & Soft Delete"}
                             </button>
-
                         </div>
-
                     </div>
                 </form>
             )}
-
         </div>
     );
 }
