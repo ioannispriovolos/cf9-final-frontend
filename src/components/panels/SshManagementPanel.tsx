@@ -1,86 +1,61 @@
-import React, { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Terminal, Server, Play, Plus, CheckSquare, Square, Trash2, Cpu, ShieldCheck } from "lucide-react";
-import type {Device} from "@/schemas/devices.ts";
+import { toast } from "sonner";
+import {
+    getDevices,
+    createDevice,
+    deleteDevice,
+    executeCommand,
+} from "@/api/devices";
+
+import {
+    type Device,
+    type CreateDevicePayload,
+    createDeviceSchema, type CreateDeviceFormInput,
+} from "@/schemas/devices";
 
 export default function SshManagementPanel() {
-    // Tab State
+    // ---------------- Tabs ----------------
+
     const [activeTab, setActiveTab] = useState<"terminal" | "devices">("terminal");
 
-    // Device Inventory State (Mocked initial data matching DB structure)
-    const [devices, setDevices] = useState<Device[]>([]);
+// ---------------- Devices ----------------
 
-    // Command Execution State
-    const [selectedDeviceIds, setSelectedDeviceIds] = useState<number[]>([1]);
+    const [devices, setDevices] = useState<Device[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+
+// ---------------- Terminal ----------------
+
+    const [selectedDeviceIds, setSelectedDeviceIds] = useState<number[]>([]);
     const [command, setCommand] = useState("");
-    const [terminalOutput, setTerminalOutput] = useState<string>(
-        "SSH Management Engine Initialized.\nSelect target devices from directory to execute commands.\n------------------------------------------------------------"
+
+    const [terminalOutput, setTerminalOutput] = useState(
+        "SSH Management Engine Initialized.\n" +
+        "Select target devices from directory.\n" +
+        "------------------------------------------------------------"
     );
+
     const [isExecuting, setIsExecuting] = useState(false);
 
-    // New Device Form State (Matches CREATE TABLE schema)
-    const [newDevice, setNewDevice] = useState({
-        title: "",
-        manufacturer: "",
-        model: "",
-        ipAddress: "",
-        sshPort: 22,
-        username: "",
-        password: "",
-    });
+// ---------------- Device Form ----------------
 
-    // Toggle Single Device Selection
-    const toggleDeviceSelect = (id: number) => {
-        setSelectedDeviceIds((prev) =>
-            prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-        );
-    };
-
-    // Toggle Select All
-    const toggleSelectAll = () => {
-        if (selectedDeviceIds.length === devices.length) {
-            setSelectedDeviceIds([]);
-        } else {
-            setSelectedDeviceIds(devices.map((d) => d.id!).filter(Boolean));
-        }
-    };
-
-    // Dispatch Command Execution across selected devices
-    const handleExecuteCommand = (e: React.SubmitEvent) => {
-        e.preventDefault();
-        if (!command.trim() || selectedDeviceIds.length === 0) return;
-
-        setIsExecuting(true);
-        const targets = devices.filter((d) => d.id && selectedDeviceIds.includes(d.id));
-
-        const timestamp = new Date().toLocaleTimeString();
-        let initialLog = `\n\n[${timestamp}] $ ${command}\n> Target Scope: ${targets.map((t) => t.title).join(", ")}`;
-        setTerminalOutput((prev) => prev + initialLog);
-
-        // Simulated async execution response
-        setTimeout(() => {
-            let executionResults = "";
-            targets.forEach((target) => {
-                executionResults += `\n[${target.title} (${target.ipAddress}:${target.sshPort})] OK:\n  -> Executed '${command}' via user '${target.username}'. Status code: 0.`;
-            });
-
-            setTerminalOutput((prev) => prev + executionResults);
-            setIsExecuting(false);
-            setCommand("");
-        }, 1000);
-    };
-
-    // Add Device Handler
-    const handleAddDevice = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newDevice.title || !newDevice.ipAddress || !newDevice.username || !newDevice.password) return;
-
-        const createdDevice: Device = {
-            id: Date.now(),
-            ...newDevice,
-        };
-
-        setDevices((prev) => [...prev, createdDevice]);
-        setNewDevice({
+    const {
+        register,
+        handleSubmit,
+        reset,
+        formState: {
+            errors,
+            isSubmitting,
+        },
+    } = useForm<
+        CreateDeviceFormInput,
+        unknown,
+        CreateDevicePayload
+    >({
+        resolver: zodResolver(createDeviceSchema),
+        defaultValues: {
             title: "",
             manufacturer: "",
             model: "",
@@ -88,14 +63,135 @@ export default function SshManagementPanel() {
             sshPort: 22,
             username: "",
             password: "",
-        });
-        setActiveTab("devices");
+        },
+    });
+
+// ---------------- Fetch Devices ----------------
+
+    const handleFetchDevices = useCallback(async () => {
+        try {
+            setIsLoading(true);
+
+            const data = await getDevices();
+
+            setDevices(data);
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Unable to load devices");
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        handleFetchDevices();
+    }, [handleFetchDevices]);
+
+// ---------------- Add Device ----------------
+
+    const onAddDevice = async (payload: CreateDevicePayload) => {
+        try {
+            await createDevice(payload);
+
+            toast.success("Device registered.");
+
+            reset({
+                title: "",
+                manufacturer: "",
+                model: "",
+                ipAddress: "",
+                sshPort: 22,
+                username: "",
+                password: "",
+            });
+
+            await handleFetchDevices();
+
+            setActiveTab("devices");
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Failed to create device.");
+        }
     };
 
-    // Delete Device Handler (Soft delete in UI)
-    const handleDeleteDevice = (id: number) => {
-        setDevices((prev) => prev.filter((d) => d.id !== id));
-        setSelectedDeviceIds((prev) => prev.filter((item) => item !== id));
+// ---------------- Delete Device ----------------
+
+    const handleDeleteDevice = async (id: number) => {
+        if (!confirm("Delete this device?")) return;
+
+        try {
+            await deleteDevice(id);
+
+            toast.success("Device deleted.");
+
+            setSelectedDeviceIds((prev) =>
+                prev.filter((x) => x !== id)
+            );
+
+            await handleFetchDevices();
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Delete failed.");
+        }
+    };
+
+// ---------------- Execute Command ----------------
+
+    const onExecuteCommand = async (
+        e: React.FormEvent<HTMLFormElement>
+    ) => {
+
+        e.preventDefault();
+
+        if (!command.trim()) return;
+
+        if (selectedDeviceIds.length === 0) return;
+
+        try {
+
+            setIsExecuting(true);
+
+            const result = await executeCommand({
+                command,
+                deviceIds: selectedDeviceIds,
+            });
+
+            setTerminalOutput((prev) => prev + "\n\n" + result.output);
+
+            setCommand("");
+
+        } catch (err) {
+
+            toast.error(
+                err instanceof Error
+                    ? err.message
+                    : "SSH execution failed."
+            );
+
+        } finally {
+            setIsExecuting(false);
+        }
+    };
+
+// ---------------- Device Selection ----------------
+
+    const toggleDeviceSelect = (id: number) => {
+        setSelectedDeviceIds((prev) =>
+            prev.includes(id)
+                ? prev.filter((x) => x !== id)
+                : [...prev, id]
+        );
+    };
+
+    const toggleSelectAll = () => {
+
+        if (selectedDeviceIds.length === devices.length) {
+            setSelectedDeviceIds([]);
+        } else {
+            setSelectedDeviceIds(
+                devices
+                    .map((d) => d.id!)
+                    .filter(Boolean)
+            );
+        }
+
     };
 
     return (
@@ -192,7 +288,7 @@ export default function SshManagementPanel() {
                     </div>
 
                     {/* Command Input Bar */}
-                    <form onSubmit={handleExecuteCommand} className="flex flex-col sm:flex-row gap-2">
+                    <form onSubmit={onExecuteCommand} className="flex flex-col sm:flex-row gap-2">
                         <div className="relative grow">
               <span className="absolute inset-y-0 left-0 pl-3 flex items-center font-mono text-xs text-gray-400">
                 $
@@ -252,68 +348,99 @@ export default function SshManagementPanel() {
                         <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-1.5">
                             <Plus className="w-4 h-4 text-red-600" /> Register New Device in Database
                         </h3>
-                        <form onSubmit={handleAddDevice} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        <form onSubmit={handleSubmit(onAddDevice)} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                             <input
                                 type="text"
                                 placeholder="Title (e.g. Edge Switch A)"
-                                value={newDevice.title}
-                                onChange={(e) => setNewDevice({ ...newDevice, title: e.target.value })}
+                                {...register("title")}
                                 required
                                 className="p-2 border border-gray-300 rounded-lg text-xs bg-white text-black focus:outline-none focus:ring-1 focus:ring-red-500"
                             />
+                            {errors.title && (
+                                <p className="text-xs text-red-600">
+                                    {errors.title.message}
+                                </p>
+                            )}
                             <input
                                 type="text"
                                 placeholder="Manufacturer (e.g. Cisco)"
-                                value={newDevice.manufacturer}
-                                onChange={(e) => setNewDevice({ ...newDevice, manufacturer: e.target.value })}
+                                {...register("manufacturer")}
                                 required
                                 className="p-2 border border-gray-300 rounded-lg text-xs bg-white text-black focus:outline-none focus:ring-1 focus:ring-red-500"
                             />
+                            {errors.manufacturer && (
+                                <p className="text-xs text-red-600">
+                                    {errors.manufacturer.message}
+                                </p>
+                            )}
                             <input
                                 type="text"
                                 placeholder="Model (e.g. Catalyst 9300)"
-                                value={newDevice.model}
-                                onChange={(e) => setNewDevice({ ...newDevice, model: e.target.value })}
+                                {...register("model")}
                                 required
                                 className="p-2 border border-gray-300 rounded-lg text-xs bg-white text-black focus:outline-none focus:ring-1 focus:ring-red-500"
                             />
+                            {errors.model && (
+                                <p className="text-xs text-red-600">
+                                    {errors.model.message}
+                                </p>
+                            )}
                             <input
                                 type="text"
                                 placeholder="IP Address (e.g. 192.168.1.1)"
-                                value={newDevice.ipAddress}
-                                onChange={(e) => setNewDevice({ ...newDevice, ipAddress: e.target.value })}
+                                {...register("ipAddress")}
                                 required
                                 className="p-2 border border-gray-300 rounded-lg text-xs bg-white text-black font-mono focus:outline-none focus:ring-1 focus:ring-red-500"
                             />
+                            {errors.ipAddress && (
+                                <p className="text-xs text-red-600">
+                                    {errors.ipAddress.message}
+                                </p>
+                            )}
                             <input
                                 type="number"
                                 placeholder="SSH Port (Default 22)"
-                                value={newDevice.sshPort}
-                                onChange={(e) => setNewDevice({ ...newDevice, sshPort: parseInt(e.target.value) || 22 })}
+                                {...register("sshPort")}
                                 required
                                 className="p-2 border border-gray-300 rounded-lg text-xs bg-white text-black font-mono focus:outline-none focus:ring-1 focus:ring-red-500"
                             />
+                            {errors.sshPort && (
+                                <p className="text-xs text-red-600">
+                                    {errors.sshPort.message}
+                                </p>
+                            )}
                             <input
                                 type="text"
                                 placeholder="SSH Username"
-                                value={newDevice.username}
-                                onChange={(e) => setNewDevice({ ...newDevice, username: e.target.value })}
+                                {...register("username")}
                                 required
                                 className="p-2 border border-gray-300 rounded-lg text-xs bg-white text-black focus:outline-none focus:ring-1 focus:ring-red-500"
                             />
+                            {errors.username && (
+                                <p className="text-xs text-red-600">
+                                    {errors.username.message}
+                                </p>
+                            )}
                             <input
                                 type="password"
                                 placeholder="SSH Password"
-                                value={newDevice.password}
-                                onChange={(e) => setNewDevice({ ...newDevice, password: e.target.value })}
+                                {...register("password")}
                                 required
                                 className="p-2 border border-gray-300 rounded-lg text-xs bg-white text-black focus:outline-none focus:ring-1 focus:ring-red-500"
                             />
+                            {errors.password && (
+                                <p className="text-xs text-red-600">
+                                    {errors.password.message}
+                                </p>
+                            )}
                             <button
                                 type="submit"
+                                disabled={isSubmitting}
                                 className="px-4 py-2 bg-black text-white rounded-lg text-xs font-semibold hover:bg-gray-800 transition-colors flex items-center justify-center gap-1 h-full"
                             >
-                                <Plus className="w-3.5 h-3.5" /> Save Device Record
+                                <Plus className="w-3.5 h-3.5" />
+                                {isSubmitting ? "Saving..." : "Save Device Record"}
+
                             </button>
                         </form>
                     </div>
@@ -333,20 +460,48 @@ export default function SshManagementPanel() {
                             </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 text-xs">
-                            {devices.length > 0 ? (
+                            {isLoading ? (
+                                <tr>
+                                    <td colSpan={7} className="p-8 text-center text-gray-500">
+                                        Loading devices...
+                                    </td>
+                                </tr>
+                            ) : devices.length > 0 ? (
                                 devices.map((device) => (
-                                    <tr key={device.id} className="hover:bg-gray-50/70 transition-colors">
-                                        <td className="p-3.5 font-bold text-gray-900">{device.title}</td>
-                                        <td className="p-3.5 text-gray-600">
-                                            {device.manufacturer} <span className="text-gray-400">({device.model})</span>
+                                    <tr
+                                        key={device.id}
+                                        className="hover:bg-gray-50/70 transition-colors"
+                                    >
+                                        <td className="p-3.5 font-bold text-gray-900">
+                                            {device.title}
                                         </td>
-                                        <td className="p-3.5 font-mono text-gray-600">{device.ipAddress}</td>
-                                        <td className="p-3.5 font-mono text-gray-600">{device.sshPort}</td>
-                                        <td className="p-3.5 text-gray-700 font-mono">{device.username}</td>
+
+                                        <td className="p-3.5 text-gray-600">
+                                            {device.manufacturer}
+                                        </td>
+
+                                        <td className="p-3.5 font-mono text-gray-600">
+                                            {device.model}
+                                        </td>
+
+                                        <td className="p-3.5 font-mono text-gray-600">
+                                            {device.ipAddress}
+                                        </td>
+
+                                        <td className="p-3.5 font-mono text-gray-600">
+                                            {device.sshPort}
+                                        </td>
+
+                                        <td className="p-3.5 text-gray-700 font-mono">
+                                            {device.username}
+                                        </td>
+
                                         <td className="p-3.5 text-center">
                                             <button
                                                 type="button"
-                                                onClick={() => device.id && handleDeleteDevice(device.id)}
+                                                onClick={() =>
+                                                    device.id && handleDeleteDevice(device.id)
+                                                }
                                                 className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
                                                 title="Delete Device"
                                             >
@@ -357,7 +512,7 @@ export default function SshManagementPanel() {
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan={6} className="p-8 text-center text-gray-400">
+                                    <td colSpan={7} className="p-8 text-center text-gray-400">
                                         No devices present in database.
                                     </td>
                                 </tr>
