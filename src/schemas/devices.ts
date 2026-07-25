@@ -31,7 +31,7 @@ export type CreateDevicePayload = z.output<
 >;
 
 export const executeCommandSchema = z.object({
-    command: z.string().trim().min(1),
+    command: z.string().trim().min(1).max(2000),
     deviceIds: z
         .array(z.number().int().positive())
         .min(1, "Select at least one device"),
@@ -41,8 +41,40 @@ export type ExecuteCommandPayload = z.infer<
     typeof executeCommandSchema
 >;
 
-export const executeCommandResponseSchema = z.object({
+export const sshExecutionResultSchema = z.object({
+    deviceId: z.number().int().positive(),
+
+    deviceTitle: z.string(),
+
+    ipAddress: z.string(),
+
+    successful: z.boolean(),
+
+    exitStatus: z.number().int().nullable(),
+
     output: z.string(),
+
+    errorOutput: z.string(),
+
+    errorMessage: z.string().nullable(),
+
+    durationMs: z.number().nonnegative(),
+});
+
+export type SshExecutionResult = z.infer<
+    typeof sshExecutionResultSchema
+>;
+
+export const executeCommandResponseSchema = z.object({
+    requestedDevices: z.number().int().nonnegative(),
+
+    successfulDevices: z.number().int().nonnegative(),
+
+    failedDevices: z.number().int().nonnegative(),
+
+    durationMs: z.number().nonnegative(),
+
+    results: z.array(sshExecutionResultSchema),
 });
 
 export type ExecuteCommandResponse = z.infer<
