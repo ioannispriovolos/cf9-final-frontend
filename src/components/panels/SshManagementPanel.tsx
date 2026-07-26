@@ -15,6 +15,7 @@ import {
     type CreateDevicePayload,
     createDeviceSchema, type CreateDeviceFormInput,
 } from "@/schemas/devices";
+import * as React from "react";
 
 export default function SshManagementPanel() {
     // ---------------- Tabs ----------------
@@ -135,41 +136,93 @@ export default function SshManagementPanel() {
 // ---------------- Execute Command ----------------
 
     const onExecuteCommand = async (
-        e: React.FormEvent<HTMLFormElement>
+        e: React.SubmitEvent<HTMLFormElement>
     ) => {
-
         e.preventDefault();
 
-        if (!command.trim()) return;
+        const trimmedCommand = command.trim();
 
-        if (selectedDeviceIds.length === 0) return;
+        if (!trimmedCommand) {
+            toast.error("Enter a command.");
+            return;
+        }
+
+        if (selectedDeviceIds.length === 0) {
+            toast.error("Select at least one device.");
+            return;
+        }
 
         try {
-
             setIsExecuting(true);
 
             const result = await executeCommand({
-                command,
+                command: trimmedCommand,
                 deviceIds: selectedDeviceIds,
             });
 
-            setTerminalOutput((prev) => prev + "\n\n" + result.output);
+            const terminalText = result.results
+                .map((deviceResult) => {
+                    const status = deviceResult.successful
+                        ? "SUCCESS"
+                        : "FAILED";
 
-            setCommand("");
+                    const message = deviceResult.successful
+                        ? deviceResult.output ||
+                        "Command completed without output."
+                        : deviceResult.errorMessage ||
+                        deviceResult.errorOutput ||
+                        "SSH execution failed.";
 
-        } catch (err) {
+                    return [
+                        "========================================",
+                        `Device: ${deviceResult.deviceTitle}`,
+                        `IP: ${deviceResult.ipAddress}`,
+                        `Status: ${status}`,
+                        `Duration: ${deviceResult.durationMs} ms`,
+                        "----------------------------------------",
+                        message,
+                    ].join("\n");
+                })
+                .join("\n\n");
 
-            toast.error(
-                err instanceof Error
-                    ? err.message
-                    : "SSH execution failed."
+            setTerminalOutput((previousOutput) =>
+                previousOutput
+                    ? `${previousOutput}\n\n${terminalText}`
+                    : terminalText
             );
 
+            if (result.failedDevices === 0) {
+                toast.success(
+                    `Command completed successfully on ${result.successfulDevices} device(s).`
+                );
+            } else if (result.successfulDevices === 0) {
+                toast.error(
+                    `Command failed on ${result.failedDevices} device(s).`
+                );
+            } else {
+                toast.warning(
+                    `${result.successfulDevices} device(s) succeeded and ${result.failedDevices} failed.`
+                );
+            }
+
+            setCommand("");
+        } catch (error) {
+            const message =
+                error instanceof Error
+                    ? error.message
+                    : "SSH execution failed.";
+
+            setTerminalOutput((previousOutput) =>
+                previousOutput
+                    ? `${previousOutput}\n\nERROR: ${message}`
+                    : `ERROR: ${message}`
+            );
+
+            toast.error(message);
         } finally {
             setIsExecuting(false);
         }
     };
-
 // ---------------- Device Selection ----------------
 
     const toggleDeviceSelect = (id: number) => {
@@ -200,7 +253,7 @@ export default function SshManagementPanel() {
             <div className="border-b border-gray-200 bg-gray-50/50 p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                        <Cpu className="w-5 h-5 text-red-600" />
+                        <Cpu className="w-5 h-5 text-custom-dark-red" />
                         SSH Fleet Execution Console
                     </h2>
                     <p className="text-xs text-gray-500 mt-0.5">
@@ -309,7 +362,7 @@ export default function SshManagementPanel() {
                         <button
                             type="submit"
                             disabled={selectedDeviceIds.length === 0 || !command.trim() || isExecuting}
-                            className="px-5 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2 shrink-0"
+                            className="px-5 py-2 bg-custom-dark-red text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2 shrink-0"
                         >
                             <Play className="w-4 h-4 fill-current" />
                             {isExecuting ? "Executing..." : "Execute Command"}
@@ -320,7 +373,7 @@ export default function SshManagementPanel() {
                     <div className="relative bg-gray-950 rounded-xl p-4 border border-gray-800 font-mono text-xs text-green-400 shadow-inner">
                         <div className="flex items-center justify-between pb-2 mb-2 border-b border-gray-800 text-gray-500">
               <span className="flex items-center gap-1.5 text-[11px]">
-                <span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block" />
+                <span className="w-2.5 h-2.5 rounded-full bg-custom-dark-red inline-block" />
                 <span className="w-2.5 h-2.5 rounded-full bg-yellow-500 inline-block" />
                 <span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block" />
                 <span className="ml-2 font-sans font-semibold">tty1 — stdout / stderr</span>
@@ -346,7 +399,7 @@ export default function SshManagementPanel() {
                     {/* Registration Form */}
                     <div className="bg-gray-50 border border-gray-200 rounded-xl p-5">
                         <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-1.5">
-                            <Plus className="w-4 h-4 text-red-600" /> Register New Device in Database
+                            <Plus className="w-4 h-4 text-custom-dark-red" /> Register New Device in Database
                         </h3>
                         <form onSubmit={handleSubmit(onAddDevice)} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                             <input
@@ -354,10 +407,10 @@ export default function SshManagementPanel() {
                                 placeholder="Title (e.g. Edge Switch A)"
                                 {...register("title")}
                                 required
-                                className="p-2 border border-gray-300 rounded-lg text-xs bg-white text-black focus:outline-none focus:ring-1 focus:ring-red-500"
+                                className="p-2 border border-gray-300 rounded-lg text-xs bg-white text-black focus:outline-none focus:ring-1 focus:ring-custom-dark-red"
                             />
                             {errors.title && (
-                                <p className="text-xs text-red-600">
+                                <p className="text-xs text-custom-dark-red">
                                     {errors.title.message}
                                 </p>
                             )}
@@ -366,7 +419,7 @@ export default function SshManagementPanel() {
                                 placeholder="Manufacturer (e.g. Cisco)"
                                 {...register("manufacturer")}
                                 required
-                                className="p-2 border border-gray-300 rounded-lg text-xs bg-white text-black focus:outline-none focus:ring-1 focus:ring-red-500"
+                                className="p-2 border border-gray-300 rounded-lg text-xs bg-white text-black focus:outline-none focus:ring-1 focus:ring-custom-dark-red"
                             />
                             {errors.manufacturer && (
                                 <p className="text-xs text-red-600">
@@ -378,10 +431,10 @@ export default function SshManagementPanel() {
                                 placeholder="Model (e.g. Catalyst 9300)"
                                 {...register("model")}
                                 required
-                                className="p-2 border border-gray-300 rounded-lg text-xs bg-white text-black focus:outline-none focus:ring-1 focus:ring-red-500"
+                                className="p-2 border border-gray-300 rounded-lg text-xs bg-white text-black focus:outline-none focus:ring-1 focus:ring-custom-dark-red"
                             />
                             {errors.model && (
-                                <p className="text-xs text-red-600">
+                                <p className="text-xs text-custom-dark-red">
                                     {errors.model.message}
                                 </p>
                             )}
@@ -390,10 +443,10 @@ export default function SshManagementPanel() {
                                 placeholder="IP Address (e.g. 192.168.1.1)"
                                 {...register("ipAddress")}
                                 required
-                                className="p-2 border border-gray-300 rounded-lg text-xs bg-white text-black font-mono focus:outline-none focus:ring-1 focus:ring-red-500"
+                                className="p-2 border border-gray-300 rounded-lg text-xs bg-white text-black font-mono focus:outline-none focus:ring-1 focus:ring-custom-dark-red"
                             />
                             {errors.ipAddress && (
-                                <p className="text-xs text-red-600">
+                                <p className="text-xs text-custom-dark-red">
                                     {errors.ipAddress.message}
                                 </p>
                             )}
@@ -402,10 +455,10 @@ export default function SshManagementPanel() {
                                 placeholder="SSH Port (Default 22)"
                                 {...register("sshPort")}
                                 required
-                                className="p-2 border border-gray-300 rounded-lg text-xs bg-white text-black font-mono focus:outline-none focus:ring-1 focus:ring-red-500"
+                                className="p-2 border border-gray-300 rounded-lg text-xs bg-white text-black font-mono focus:outline-none focus:ring-1 focus:ring-custom-dark-red"
                             />
                             {errors.sshPort && (
-                                <p className="text-xs text-red-600">
+                                <p className="text-xs text-custom-dark-red">
                                     {errors.sshPort.message}
                                 </p>
                             )}
@@ -417,7 +470,7 @@ export default function SshManagementPanel() {
                                 className="p-2 border border-gray-300 rounded-lg text-xs bg-white text-black focus:outline-none focus:ring-1 focus:ring-red-500"
                             />
                             {errors.username && (
-                                <p className="text-xs text-red-600">
+                                <p className="text-xs text-custom-dark-red">
                                     {errors.username.message}
                                 </p>
                             )}
@@ -426,10 +479,10 @@ export default function SshManagementPanel() {
                                 placeholder="SSH Password"
                                 {...register("password")}
                                 required
-                                className="p-2 border border-gray-300 rounded-lg text-xs bg-white text-black focus:outline-none focus:ring-1 focus:ring-red-500"
+                                className="p-2 border border-gray-300 rounded-lg text-xs bg-white text-black focus:outline-none focus:ring-1 focus:ring-custom-dark-red"
                             />
                             {errors.password && (
-                                <p className="text-xs text-red-600">
+                                <p className="text-xs text-custom-dark-red">
                                     {errors.password.message}
                                 </p>
                             )}
@@ -502,7 +555,7 @@ export default function SshManagementPanel() {
                                                 onClick={() =>
                                                     device.id && handleDeleteDevice(device.id)
                                                 }
-                                                className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                                                className="p-1.5 text-gray-400 hover:text-custom-dark-red rounded-lg hover:bg-red-50 transition-colors"
                                                 title="Delete Device"
                                             >
                                                 <Trash2 className="w-4 h-4" />
