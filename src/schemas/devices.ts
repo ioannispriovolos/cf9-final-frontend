@@ -12,6 +12,18 @@ export const deviceSchema = z.object({
 
 export type Device = z.infer<typeof deviceSchema>;
 
+export const devicePageSchema = z.object({
+    content: z.array(deviceSchema),
+    page: z.number().int().nonnegative(),
+    size: z.number().int().positive(),
+    totalElements: z.number().int().nonnegative(),
+    totalPages: z.number().int().nonnegative(),
+    first: z.boolean(),
+    last: z.boolean(),
+});
+
+export type DevicePage = z.infer<typeof devicePageSchema>;
+
 export const createDeviceSchema = z.object({
     title: z.string().trim()
         .min(2, {

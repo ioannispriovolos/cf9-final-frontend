@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { getCookie } from "@/utils/cookies";
 
 import {
@@ -9,7 +8,7 @@ import {
     type ExecuteCommandPayload,
     executeCommandSchema,
     type ExecuteCommandResponse,
-    executeCommandResponseSchema,
+    executeCommandResponseSchema, type DevicePage, devicePageSchema,
 } from "@/schemas/devices";
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -62,24 +61,30 @@ async function getErrorMessage(
 /**
  * Retrieve all active devices.
  */
-export async function getDevices(): Promise<Device[]> {
-    const response = await fetch(`${API_URL}/devices`, {
-        method: "GET",
-        headers: getAuthorizationHeaders(),
-    });
+export async function getDevices(
+    page: number = 0,
+    size: number = 6,
+): Promise<DevicePage> {
+    const response = await fetch(
+        `${API_URL}/devices?page=${page}&size=${size}&sort=title,asc`,
+        {
+            method: "GET",
+            headers: getAuthorizationHeaders(),
+        }
+    );
 
     if (!response.ok) {
         throw new Error(
             await getErrorMessage(
                 response,
-                "Failed to retrieve devices",
-            ),
+                "Failed to retrieve devices.",
+            )
         );
     }
 
     const data: unknown = await response.json();
 
-    return z.array(deviceSchema).parse(data);
+    return devicePageSchema.parse(data);
 }
 
 /**
