@@ -13,13 +13,71 @@ export const deviceSchema = z.object({
 export type Device = z.infer<typeof deviceSchema>;
 
 export const createDeviceSchema = z.object({
-    title: z.string().trim().min(2).max(100),
-    manufacturer: z.string().trim().min(1).max(100),
-    model: z.string().trim().min(1).max(100),
-    ipAddress: z.string().trim().min(1),
-    sshPort: z.coerce.number().int().min(1).max(65535),
-    username: z.string().trim().min(1).max(100),
-    password: z.string().min(1).max(255),
+    title: z.string().trim()
+        .min(2, {
+            message: "Title must contain at least 2 characters.",
+        })
+        .max(150, {
+            message: "Title must not exceed 150 characters.",
+        }),
+
+    manufacturer: z.string().trim()
+        .min(1, {
+            message: "Manufacturer is required.",
+        })
+        .max(100, {
+            message: "Manufacturer must not exceed 100 characters.",
+        }),
+
+    model: z.string().trim()
+        .min(1, {
+            message: "Model is required.",
+        })
+        .max(100, {
+            message: "Model must not exceed 100 characters.",
+        }),
+
+    ipAddress: z.string().trim()
+        .min(1, {
+            message: "IP address is required.",
+        })
+        .regex(
+            /^(?:(?:25[0-5]|2[0-4]\d|1?\d{1,2})(?:\.(?!$)|$)){4}$/,
+            {
+                message: "Must be a valid IPv4 address.",
+            }
+        ),
+
+    sshPort: z.coerce
+        .number({
+            message: "SSH port must be a number.",
+        })
+        .int({
+            message: "SSH port must be a whole number.",
+        })
+        .min(1, {
+            message: "SSH port must be at least 1.",
+        })
+        .max(65535, {
+            message: "SSH port must not exceed 65535.",
+        }),
+
+    username: z.string().trim()
+        .min(1, {
+            message: "SSH username is required.",
+        })
+        .max(100, {
+            message: "SSH username must not exceed 100 characters.",
+        }),
+
+    password: z
+        .string()
+        .min(1, {
+            message: "SSH password is required.",
+        })
+        .max(255, {
+            message: "SSH password must not exceed 255 characters.",
+        }),
 });
 
 export type CreateDeviceFormInput = z.input<

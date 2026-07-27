@@ -401,91 +401,105 @@ export default function SshManagementPanel() {
                         <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-1.5">
                             <Plus className="w-4 h-4 text-custom-dark-red" /> Register New Device in Database
                         </h3>
-                        <form onSubmit={handleSubmit(onAddDevice)} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                            <input
-                                type="text"
-                                placeholder="Title (e.g. Edge Switch A)"
-                                {...register("title")}
-                                required
-                                className="p-2 border border-gray-300 rounded-lg text-xs bg-white text-black focus:outline-none focus:ring-1 focus:ring-custom-dark-red"
-                            />
-                            {errors.title && (
-                                <p className="text-xs text-custom-dark-red">
-                                    {errors.title.message}
-                                </p>
-                            )}
-                            <input
-                                type="text"
-                                placeholder="Manufacturer (e.g. Cisco)"
-                                {...register("manufacturer")}
-                                required
-                                className="p-2 border border-gray-300 rounded-lg text-xs bg-white text-black focus:outline-none focus:ring-1 focus:ring-custom-dark-red"
-                            />
-                            {errors.manufacturer && (
-                                <p className="text-xs text-red-600">
-                                    {errors.manufacturer.message}
-                                </p>
-                            )}
-                            <input
-                                type="text"
-                                placeholder="Model (e.g. Catalyst 9300)"
-                                {...register("model")}
-                                required
-                                className="p-2 border border-gray-300 rounded-lg text-xs bg-white text-black focus:outline-none focus:ring-1 focus:ring-custom-dark-red"
-                            />
-                            {errors.model && (
-                                <p className="text-xs text-custom-dark-red">
-                                    {errors.model.message}
-                                </p>
-                            )}
-                            <input
-                                type="text"
-                                placeholder="IP Address (e.g. 192.168.1.1)"
-                                {...register("ipAddress")}
-                                required
-                                className="p-2 border border-gray-300 rounded-lg text-xs bg-white text-black font-mono focus:outline-none focus:ring-1 focus:ring-custom-dark-red"
-                            />
-                            {errors.ipAddress && (
-                                <p className="text-xs text-custom-dark-red">
-                                    {errors.ipAddress.message}
-                                </p>
-                            )}
-                            <input
-                                type="number"
-                                placeholder="SSH Port (Default 22)"
-                                {...register("sshPort")}
-                                required
-                                className="p-2 border border-gray-300 rounded-lg text-xs bg-white text-black font-mono focus:outline-none focus:ring-1 focus:ring-custom-dark-red"
-                            />
-                            {errors.sshPort && (
-                                <p className="text-xs text-custom-dark-red">
-                                    {errors.sshPort.message}
-                                </p>
-                            )}
-                            <input
-                                type="text"
-                                placeholder="SSH Username"
-                                {...register("username")}
-                                required
-                                className="p-2 border border-gray-300 rounded-lg text-xs bg-white text-black focus:outline-none focus:ring-1 focus:ring-red-500"
-                            />
-                            {errors.username && (
-                                <p className="text-xs text-custom-dark-red">
-                                    {errors.username.message}
-                                </p>
-                            )}
-                            <input
-                                type="password"
-                                placeholder="SSH Password"
-                                {...register("password")}
-                                required
-                                className="p-2 border border-gray-300 rounded-lg text-xs bg-white text-black focus:outline-none focus:ring-1 focus:ring-custom-dark-red"
-                            />
-                            {errors.password && (
-                                <p className="text-xs text-custom-dark-red">
-                                    {errors.password.message}
-                                </p>
-                            )}
+                        <form onSubmit={handleSubmit(onAddDevice)} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" noValidate>
+                            <div className="flex flex-col">
+                                <input
+                                    type="text"
+                                    placeholder="Title (e.g. Edge Switch A)"
+                                    {...register("title")}
+                                    aria-invalid={Boolean(errors.title)}
+                                    className="w-full p-2 border border-gray-300 rounded-lg text-xs bg-white text-black focus:outline-none focus:ring-1 focus:ring-custom-dark-red"
+                                />
+                                {errors.title && (
+                                    <p className="text-xs text-custom-dark-red">
+                                        {errors.title.message}
+                                    </p>
+                                )}
+                            </div>
+                            <div className="flex flex-col">
+                                <input
+                                    type="text"
+                                    placeholder="Manufacturer (e.g. Cisco)"
+                                    {...register("manufacturer")}
+                                    aria-invalid={Boolean(errors.manufacturer)}
+                                    className="w-full p-2 border border-gray-300 rounded-lg text-xs bg-white text-black focus:outline-none focus:ring-1 focus:ring-custom-dark-red"
+                                />
+                                {errors.manufacturer && (
+                                    <p className="text-xs text-custom-dark-red">
+                                        {errors.manufacturer.message}
+                                    </p>
+                                )}
+                            </div>
+                            <div className="flex flex-col">
+                                <input
+                                    type="text"
+                                    placeholder="Model (e.g. Catalyst 9300)"
+                                    {...register("model")}
+                                    aria-invalid={Boolean(errors.model)}
+                                    className="w-full p-2 border border-gray-300 rounded-lg text-xs bg-white text-black focus:outline-none focus:ring-1 focus:ring-custom-dark-red"
+                                />
+                                {errors.model && (
+                                    <p className="text-xs text-custom-dark-red">
+                                        {errors.model.message}
+                                    </p>
+                                )}
+                            </div>
+                            <div className="flex flex-col">
+                                <input
+                                    type="text"
+                                    placeholder="IP Address (e.g. 192.168.1.1)"
+                                    {...register("ipAddress")}
+                                    aria-invalid={Boolean(errors.ipAddress)}
+                                    className="w-full p-2 border border-gray-300 rounded-lg text-xs bg-white text-black font-mono focus:outline-none focus:ring-1 focus:ring-custom-dark-red"
+                                />
+                                {errors.ipAddress && (
+                                    <p className="text-xs text-custom-dark-red">
+                                        {errors.ipAddress.message}
+                                    </p>
+                                )}
+                            </div>
+                            <div className="flex flex-col">
+                                <input
+                                    type="number"
+                                    placeholder="SSH Port (Default 22)"
+                                    {...register("sshPort")}
+                                    aria-invalid={Boolean(errors.sshPort)}
+                                    className="w-full p-2 border border-gray-300 rounded-lg text-xs bg-white text-black font-mono focus:outline-none focus:ring-1 focus:ring-custom-dark-red"
+                                />
+                                {errors.sshPort && (
+                                    <p className="text-xs text-custom-dark-red">
+                                        {errors.sshPort.message}
+                                    </p>
+                                )}
+                            </div>
+                            <div className="flex flex-col">
+                                <input
+                                    type="text"
+                                    placeholder="SSH Username"
+                                    {...register("username")}
+                                    aria-invalid={Boolean(errors.username)}
+                                    className="w-full p-2 border border-gray-300 rounded-lg text-xs bg-white text-black focus:outline-none focus:ring-1 focus:ring-custom-dark-red"
+                                />
+                                {errors.username && (
+                                    <p className="text-xs text-custom-dark-red">
+                                        {errors.username.message}
+                                    </p>
+                                )}
+                            </div>
+                            <div className="flex flex-col">
+                                <input
+                                    type="password"
+                                    placeholder="SSH Password"
+                                    {...register("password")}
+                                    aria-invalid={Boolean(errors.password)}
+                                    className="w-full p-2 border border-gray-300 rounded-lg text-xs bg-white text-black focus:outline-none focus:ring-1 focus:ring-custom-dark-red"
+                                />
+                                {errors.password && (
+                                    <p className="text-xs text-custom-dark-red">
+                                        {errors.password.message}
+                                    </p>
+                                )}
+                            </div>
                             <button
                                 type="submit"
                                 disabled={isSubmitting}
