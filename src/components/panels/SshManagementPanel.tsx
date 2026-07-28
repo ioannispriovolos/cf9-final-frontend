@@ -566,8 +566,8 @@ Select target devices from directory.
                                     {selectionTotalElements > 0 && (
                                         <span>
                                             {" "}
-                                                            · {selectionTotalElements}{" "}
-                                                            devices
+                                            · {selectionTotalElements}{" "}
+                                            devices
                                         </span>
                                     )}
                                 </p>
@@ -685,8 +685,8 @@ Select target devices from directory.
                             </button>
                         </div>
                         <pre className="whitespace-pre-wrap overflow-y-auto max-h-80 min-h-50 leading-relaxed">
-              {terminalOutput}
-            </pre>
+                          {terminalOutput}
+                        </pre>
                     </div>
                 </div>
             )}
