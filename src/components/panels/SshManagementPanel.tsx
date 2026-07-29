@@ -17,7 +17,11 @@ import {
 } from "@/schemas/devices";
 import * as React from "react";
 
-export default function SshManagementPanel() {
+type SshManagementPanelProps = {
+    onDeviceChanged?: () => void | Promise<void>;
+};
+
+export default function SshManagementPanel({onDeviceChanged,}: SshManagementPanelProps) {
     // ---------------- Tabs ----------------
 
     const [activeTab, setActiveTab] = useState<"terminal" | "devices">("terminal");
@@ -250,9 +254,10 @@ Select target devices from directory.
 
             await Promise.all([
                 loadDevices(currentPage),
-                loadSelectionDevices(
-                    selectionCurrentPage
-                ),
+                loadSelectionDevices(selectionCurrentPage),
+                onDeviceChanged
+                    ? Promise.resolve(onDeviceChanged())
+                    : Promise.resolve(),
             ]);
 
             setActiveTab("devices");
@@ -267,7 +272,9 @@ Select target devices from directory.
 
 // ---------------- Delete Device ----------------
 
-    const handleDeleteDevice = async (deviceId: number) => {
+    const handleDeleteDevice = async (
+        deviceId: number
+    ) => {
         try {
             await deleteDevice(deviceId);
 
@@ -293,10 +300,14 @@ Select target devices from directory.
                     ? selectionCurrentPage - 1
                     : selectionCurrentPage;
 
+            const refreshRequests: Promise<unknown>[] = [];
+
             if (nextDirectoryPage !== currentPage) {
                 setCurrentPage(nextDirectoryPage);
             } else {
-                await loadDevices(currentPage);
+                refreshRequests.push(
+                    loadDevices(currentPage)
+                );
             }
 
             if (
@@ -307,10 +318,22 @@ Select target devices from directory.
                     nextSelectionPage
                 );
             } else {
-                await loadSelectionDevices(
-                    selectionCurrentPage
+                refreshRequests.push(
+                    loadSelectionDevices(
+                        selectionCurrentPage
+                    )
                 );
             }
+
+            if (onDeviceChanged) {
+                refreshRequests.push(
+                    Promise.resolve(
+                        onDeviceChanged()
+                    )
+                );
+            }
+
+            await Promise.all(refreshRequests);
 
             toast.success(
                 "Device deleted successfully."

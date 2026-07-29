@@ -1,10 +1,16 @@
-import {useCallback, useEffect, useState} from "react";
+import {useCallback, useEffect, useState,} from "react";
+
+import {ChartLine, Network, UserRound,} from "lucide-react";
+
 import UserManagementPanel from "../components/panels/UserManagementPanel";
+
 import SshManagementPanel from "../components/panels/SshManagementPanel";
+
 import MetricsStatsPanel from "../components/panels/MetricsStatsPanel";
-import {ChartLine, Network, UserRound} from "lucide-react";
-import {getViewerDashboard} from "@/api/dashboard.ts";
-import type {ViewerDashboardResponse} from "@/schemas/dashboard.ts";
+
+import { getViewerDashboard } from "@/api/dashboard";
+
+import type { ViewerDashboardResponse } from "@/schemas/dashboard";
 
 type AdminDashboardTab =
     | "users"
@@ -16,9 +22,7 @@ export default function AdminDashboardPage() {
         useState<AdminDashboardTab>("users");
 
     const [dashboardData, setDashboardData] =
-        useState<ViewerDashboardResponse | null>(
-            null
-        );
+        useState<ViewerDashboardResponse | null>(null);
 
     const [
         isLoadingDashboard,
@@ -45,8 +49,6 @@ export default function AdminDashboardPage() {
                 error
             );
 
-            setDashboardData(null);
-
             setDashboardError(
                 error instanceof Error
                     ? error.message
@@ -57,26 +59,27 @@ export default function AdminDashboardPage() {
         }
     }, []);
 
-    /*
-     * Load the dashboard only when the user opens
-     * the System Metrics tab.
-     */
     useEffect(() => {
         if (
             activeTab === "metrics" &&
             dashboardData === null &&
-            !isLoadingDashboard &&
-            dashboardError === null
+            !isLoadingDashboard
         ) {
             void loadDashboard();
         }
     }, [
         activeTab,
         dashboardData,
-        dashboardError,
         isLoadingDashboard,
         loadDashboard,
     ]);
+
+    const handleDeviceChanged = useCallback(
+        async () => {
+            await loadDashboard();
+        },
+        [loadDashboard]
+    );
 
     return (
         <div className="flex min-h-[calc(100vh-4rem)] bg-white text-black">
@@ -138,7 +141,11 @@ export default function AdminDashboardPage() {
                     )}
 
                     {activeTab === "ssh" && (
-                        <SshManagementPanel />
+                        <SshManagementPanel
+                            onDeviceChanged={
+                                handleDeviceChanged
+                            }
+                        />
                     )}
 
                     {activeTab === "metrics" && (
@@ -156,7 +163,7 @@ export default function AdminDashboardPage() {
 
                             {dashboardError ? (
                                 <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-                                    <p className="text-sm font-medium text-custom-dark-red">
+                                    <p className="text-sm font-medium text-red-700">
                                         {dashboardError}
                                     </p>
 
@@ -165,7 +172,7 @@ export default function AdminDashboardPage() {
                                         onClick={() =>
                                             void loadDashboard()
                                         }
-                                        className="mt-3 rounded-md bg-custom-dark-red px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-800"
+                                        className="mt-3 rounded-md bg-red-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-800"
                                     >
                                         Try Again
                                     </button>
