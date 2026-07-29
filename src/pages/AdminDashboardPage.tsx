@@ -1,53 +1,187 @@
-import { useState } from "react";
+import {useCallback, useEffect, useState} from "react";
 import UserManagementPanel from "../components/panels/UserManagementPanel";
 import SshManagementPanel from "../components/panels/SshManagementPanel";
 import MetricsStatsPanel from "../components/panels/MetricsStatsPanel";
 import {ChartLine, Network, UserRound} from "lucide-react";
+import {getViewerDashboard} from "@/api/dashboard.ts";
+import type {ViewerDashboardResponse} from "@/schemas/dashboard.ts";
+
+type AdminDashboardTab =
+    | "users"
+    | "ssh"
+    | "metrics";
 
 export default function AdminDashboardPage() {
-    // Simple string state to track which panel to show
-    const [activeTab, setActiveTab] = useState("users");
+    const [activeTab, setActiveTab] =
+        useState<AdminDashboardTab>("users");
+
+    const [dashboardData, setDashboardData] =
+        useState<ViewerDashboardResponse | null>(
+            null
+        );
+
+    const [
+        isLoadingDashboard,
+        setIsLoadingDashboard,
+    ] = useState(false);
+
+    const [
+        dashboardError,
+        setDashboardError,
+    ] = useState<string | null>(null);
+
+    const loadDashboard = useCallback(async () => {
+        try {
+            setIsLoadingDashboard(true);
+            setDashboardError(null);
+
+            const response =
+                await getViewerDashboard();
+
+            setDashboardData(response);
+        } catch (error) {
+            console.error(
+                "Failed to load dashboard:",
+                error
+            );
+
+            setDashboardData(null);
+
+            setDashboardError(
+                error instanceof Error
+                    ? error.message
+                    : "Failed to load dashboard metrics."
+            );
+        } finally {
+            setIsLoadingDashboard(false);
+        }
+    }, []);
+
+    /*
+     * Load the dashboard only when the user opens
+     * the System Metrics tab.
+     */
+    useEffect(() => {
+        if (
+            activeTab === "metrics" &&
+            dashboardData === null &&
+            !isLoadingDashboard &&
+            dashboardError === null
+        ) {
+            void loadDashboard();
+        }
+    }, [
+        activeTab,
+        dashboardData,
+        dashboardError,
+        isLoadingDashboard,
+        loadDashboard,
+    ]);
 
     return (
         <div className="flex min-h-[calc(100vh-4rem)] bg-white text-black">
-            {/* Sidebar Navigation */}
-            <aside className="w-64 border-r border-gray-200 bg-gray-50 p-6 flex flex-col gap-2">
-                <h2 className="text-lg font-bold mb-4 tracking-tight">Admin Console</h2>
+            <aside className="flex w-64 flex-col gap-2 border-r border-gray-200 bg-gray-50 p-6">
+                <h2 className="mb-4 text-lg font-bold tracking-tight">
+                    Admin Console
+                </h2>
 
                 <button
-                    onClick={() => setActiveTab("users")}
-                    className={`text-left w-full px-4 py-2 rounded text-sm transition-colors ${
-                        activeTab === "users" ? "bg-black text-white font-medium" : "hover:bg-gray-200 text-gray-700"
+                    type="button"
+                    onClick={() =>
+                        setActiveTab("users")
+                    }
+                    className={`flex w-full items-center gap-2 rounded px-4 py-2 text-left text-sm transition-colors ${
+                        activeTab === "users"
+                            ? "bg-black font-medium text-white"
+                            : "text-gray-700 hover:bg-gray-200"
                     }`}
                 >
-                    <UserRound />User Management
+                    <UserRound className="h-4 w-4" />
+                    <span>User Management</span>
                 </button>
 
                 <button
-                    onClick={() => setActiveTab("ssh")}
-                    className={`text-left w-full px-4 py-2 rounded text-sm transition-colors ${
-                        activeTab === "ssh" ? "bg-black text-white font-medium" : "hover:bg-gray-200 text-gray-700"
+                    type="button"
+                    onClick={() =>
+                        setActiveTab("ssh")
+                    }
+                    className={`flex w-full items-center gap-2 rounded px-4 py-2 text-left text-sm transition-colors ${
+                        activeTab === "ssh"
+                            ? "bg-black font-medium text-white"
+                            : "text-gray-700 hover:bg-gray-200"
                     }`}
                 >
-                    <Network />SSH Management
+                    <Network className="h-4 w-4" />
+                    <span>SSH Management</span>
                 </button>
 
                 <button
-                    onClick={() => setActiveTab("metrics")}
-                    className={`text-left w-full px-4 py-2 rounded text-sm transition-colors ${
-                        activeTab === "metrics" ? "bg-black text-white font-medium" : "hover:bg-gray-200 text-gray-700"
+                    type="button"
+                    onClick={() =>
+                        setActiveTab("metrics")
+                    }
+                    className={`flex w-full items-center gap-2 rounded px-4 py-2 text-left text-sm transition-colors ${
+                        activeTab === "metrics"
+                            ? "bg-black font-medium text-white"
+                            : "text-gray-700 hover:bg-gray-200"
                     }`}
                 >
-                    <ChartLine />System Metrics
+                    <ChartLine className="h-4 w-4" />
+                    <span>System Metrics</span>
                 </button>
             </aside>
 
-            {/* Dynamic Content Panel Viewport */}
-            <main className="grow p-8 bg-white">
-                <div className="max-w-5xl mx-auto border border-gray-200 rounded-lg p-6 bg-white shadow-sm">
-                    {activeTab === "users" && <UserManagementPanel />}
-                    {activeTab === "ssh" && <SshManagementPanel />}
-                    {activeTab === "metrics" && <MetricsStatsPanel />}
+            <main className="grow bg-white p-8">
+                <div className="mx-auto max-w-5xl rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+                    {activeTab === "users" && (
+                        <UserManagementPanel />
+                    )}
+
+                    {activeTab === "ssh" && (
+                        <SshManagementPanel />
+                    )}
+
+                    {activeTab === "metrics" && (
+                        <div className="space-y-5">
+                            <div>
+                                <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+                                    System Metrics
+                                </h1>
+
+                                <p className="mt-1 text-sm text-gray-500">
+                                    Overview of the registered
+                                    network infrastructure.
+                                </p>
+                            </div>
+
+                            {dashboardError ? (
+                                <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+                                    <p className="text-sm font-medium text-custom-dark-red">
+                                        {dashboardError}
+                                    </p>
+
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            void loadDashboard()
+                                        }
+                                        className="mt-3 rounded-md bg-custom-dark-red px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-800"
+                                    >
+                                        Try Again
+                                    </button>
+                                </div>
+                            ) : (
+                                <MetricsStatsPanel
+                                    dashboardData={
+                                        dashboardData
+                                    }
+                                    isLoading={
+                                        isLoadingDashboard
+                                    }
+                                />
+                            )}
+                        </div>
+                    )}
                 </div>
             </main>
         </div>
