@@ -163,7 +163,7 @@ export default function AdminDashboardPage() {
 
                             {dashboardError ? (
                                 <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-                                    <p className="text-sm font-medium text-red-700">
+                                    <p className="text-sm font-medium text-custom-dark-red">
                                         {dashboardError}
                                     </p>
 
@@ -172,7 +172,7 @@ export default function AdminDashboardPage() {
                                         onClick={() =>
                                             void loadDashboard()
                                         }
-                                        className="mt-3 rounded-md bg-red-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-800"
+                                        className="mt-3 rounded-md bg-custom-dark-red px-3 py-1.5 text-sm font-medium text-white hover:bg-red-800"
                                     >
                                         Try Again
                                     </button>
