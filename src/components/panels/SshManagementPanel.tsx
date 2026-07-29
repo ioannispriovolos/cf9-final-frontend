@@ -889,10 +889,19 @@ Select target devices from directory.
                                             <td className="p-3.5 text-center">
                                                 <button
                                                     type="button"
-                                                    onClick={() =>
-                                                        device.id &&
-                                                        handleDeleteDevice(device.id)
-                                                    }
+                                                    onClick={() => {
+                                                        if (!device.id) {
+                                                            return;
+                                                        }
+
+                                                        const confirmed = window.confirm(
+                                                            `Are you sure you want to delete the device "${device.title}"?\n\nThis action cannot be undone.`
+                                                        );
+
+                                                        if (confirmed) {
+                                                            void handleDeleteDevice(device.id);
+                                                        }
+                                                    }}
                                                     className="p-1.5 text-gray-400 hover:text-custom-dark-red rounded-lg hover:bg-red-50 transition-colors"
                                                     title="Delete Device"
                                                 >
