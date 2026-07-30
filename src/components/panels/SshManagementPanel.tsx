@@ -456,7 +456,7 @@ Select target devices from directory.
                         SSH Fleet Execution Console
                     </h2>
                     <p className="text-xs text-gray-500 mt-0.5">
-                        Execute batch scripts and provision network inventory directly against database entries.
+                        Execute batch scripts and provision network inventory.
                     </p>
                 </div>
 
