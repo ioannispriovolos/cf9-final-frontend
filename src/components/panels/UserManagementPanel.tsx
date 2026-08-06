@@ -453,7 +453,6 @@ export default function UserManagementPanel() {
                                 type="password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                placeholder="••••••••"
                                 required
                                 className={`w-full bg-white border rounded-lg p-2 text-sm text-black focus:outline-none transition-colors ${
                                     password === "" ? "border-gray-300 focus:border-black" : isPasswordValid ? "border-green-500" : "border-amber-400"
@@ -480,7 +479,6 @@ export default function UserManagementPanel() {
                                 type="password"
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
-                                placeholder="••••••••"
                                 required
                                 className={`w-full bg-white border rounded-lg p-2 text-sm text-black focus:outline-none transition-colors ${
                                     confirmPassword === ""
@@ -491,10 +489,10 @@ export default function UserManagementPanel() {
                                 }`}
                             />
                             {confirmPassword && password !== confirmPassword && (
-                                <span className="text-xs font-medium text-custom-dark-red mt-1 block">✕ Passwords do not match</span>
+                                <span className="text-xs font-medium text-custom-dark-red mt-1 block">Passwords do not match</span>
                             )}
                             {confirmPassword && password === confirmPassword && (
-                                <span className="text-xs font-medium text-green-600 mt-1 block">✓ Passwords match</span>
+                                <span className="text-xs font-medium text-green-600 mt-1 block">Passwords match</span>
                             )}
                         </div>
 
