@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+const ipv4Regex = /^(?:(?:25[0-5]|2[0-4]\d|1?\d{1,2})(?:\.(?!$)|$)){4}$/;
+
 export const deviceSchema = z.object({
     id: z.number().int().positive(),
     title: z.string(),
@@ -54,7 +56,7 @@ export const createDeviceSchema = z.object({
             message: "IP address is required.",
         })
         .regex(
-            /^(?:(?:25[0-5]|2[0-4]\d|1?\d{1,2})(?:\.(?!$)|$)){4}$/,
+            ipv4Regex,
             {
                 message: "Must be a valid IPv4 address.",
             }
@@ -149,4 +151,143 @@ export const executeCommandResponseSchema = z.object({
 
 export type ExecuteCommandResponse = z.infer<
     typeof executeCommandResponseSchema
+>;
+
+/*
+ * Values used while editing a row.
+ *
+ * The form initially contains the current values of the device.
+ */
+export const updateDeviceFormSchema = z.object({
+    title: z.string().trim()
+        .min(2, {
+            message: "Title must contain at least 2 characters.",
+        })
+        .max(150, {
+            message: "Title must not exceed 150 characters.",
+        }),
+
+    manufacturer: z.string().trim()
+        .min(1, {
+            message: "Manufacturer is required.",
+        })
+        .max(100, {
+            message: "Manufacturer must not exceed 100 characters.",
+        }),
+
+    model: z.string().trim()
+        .min(1, {
+            message: "Model is required.",
+        })
+        .max(100, {
+            message: "Model must not exceed 100 characters.",
+        }),
+
+    ipAddress: z.string().trim()
+        .min(1, {
+            message: "IP address is required.",
+        })
+        .regex(
+            ipv4Regex,
+            {
+                message: "Must be a valid IPv4 address.",
+            }
+        ),
+
+    sshPort: z.coerce
+        .number({
+            message: "SSH port must be a number.",
+        })
+        .int({
+            message: "SSH port must be a whole number.",
+        })
+        .min(1, {
+            message: "SSH port must be at least 1.",
+        })
+        .max(65535, {
+            message: "SSH port must not exceed 65535.",
+        }),
+
+    username: z.string().trim()
+        .min(1, {
+            message: "SSH username is required.",
+        })
+        .max(100, {
+            message: "SSH username must not exceed 100 characters.",
+        }),
+});
+
+export type UpdateDeviceFormInput = z.input<
+    typeof updateDeviceFormSchema
+>;
+
+export type UpdateDeviceFormValues = z.output<
+    typeof updateDeviceFormSchema
+>;
+
+/*
+ * Exact payload sent to DeviceUpdateDTO.
+ *
+ * Unchanged fields are null.
+ * Password is intentionally excluded.
+ */
+export const updateDevicePayloadSchema = z
+    .object({
+        title: z
+            .string()
+            .trim()
+            .min(2)
+            .max(150)
+            .nullable(),
+
+        manufacturer: z
+            .string()
+            .trim()
+            .min(1)
+            .max(100)
+            .nullable(),
+
+        model: z
+            .string()
+            .trim()
+            .min(1)
+            .max(100)
+            .nullable(),
+
+        ipAddress: z
+            .string()
+            .trim()
+            .regex(ipv4Regex, {
+                message:
+                    "Must be a valid IPv4 address.",
+            })
+            .nullable(),
+
+        sshPort: z
+            .number()
+            .int()
+            .min(1)
+            .max(65535)
+            .nullable(),
+
+        username: z
+            .string()
+            .trim()
+            .min(1)
+            .max(100)
+            .nullable(),
+    })
+    .refine(
+        (payload) =>
+            Object.values(payload).some(
+                (value) => value !== null
+            ),
+        {
+            message:
+                "At least one device property must be modified.",
+        }
+    );
+
+export type UpdateDevicePayload = z.infer<
+    typeof updateDevicePayloadSchema
 >;

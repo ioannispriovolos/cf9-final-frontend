@@ -1,25 +1,78 @@
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import {type SubmitHandler, useForm} from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Terminal, Server, Play, Plus, CheckSquare, Square, Trash2, Cpu, ShieldCheck } from "lucide-react";
+import {
+    Terminal,
+    Server,
+    Play,
+    Plus,
+    CheckSquare,
+    Square,
+    Trash2,
+    Cpu,
+    ShieldCheck,
+    Check, Pencil, X
+} from "lucide-react";
 import { toast } from "sonner";
 import {
     getDevices,
     createDevice,
     deleteDevice,
-    executeCommand,
+    executeCommand, updateDevice,
 } from "@/api/devices";
 
 import {
     type Device,
     type CreateDevicePayload,
-    createDeviceSchema, type CreateDeviceFormInput,
+    createDeviceSchema, type CreateDeviceFormInput, type UpdateDeviceFormInput, type UpdateDeviceFormValues,
+    updateDeviceFormSchema, type UpdateDevicePayload,
 } from "@/schemas/devices";
 import * as React from "react";
 
 type SshManagementPanelProps = {
     onDeviceChanged?: () => void | Promise<void>;
 };
+
+function buildUpdateDevicePayload(
+    original: Device,
+    edited: UpdateDeviceFormValues
+): UpdateDevicePayload {
+    return {
+        title:
+            edited.title !== original.title
+                ? edited.title
+                : null,
+
+        manufacturer:
+            edited.manufacturer !==
+            original.manufacturer
+                ? edited.manufacturer
+                : null,
+
+        model:
+            edited.model !== original.model
+                ? edited.model
+                : null,
+
+        ipAddress:
+            edited.ipAddress !==
+            original.ipAddress
+                ? edited.ipAddress
+                : null,
+
+        sshPort:
+            edited.sshPort !==
+            original.sshPort
+                ? edited.sshPort
+                : null,
+
+        username:
+            edited.username !==
+            original.username
+                ? edited.username
+                : null,
+    };
+}
 
 export default function SshManagementPanel({onDeviceChanged,}: SshManagementPanelProps) {
     // ---------------- Tabs ----------------
@@ -49,6 +102,16 @@ export default function SshManagementPanel({onDeviceChanged,}: SshManagementPane
 
     const [isLoadingSelectionDevices, setIsLoadingSelectionDevices] =
         useState(false);
+
+    const [
+        editingDeviceId,
+        setEditingDeviceId,
+    ] = useState<number | null>(null);
+
+    const [
+        originalDevice,
+        setOriginalDevice,
+    ] = useState<Device | null>(null);
 
 // ---------------- Terminal ----------------
 
@@ -90,6 +153,107 @@ Select target devices from directory.
         },
     });
 
+    const {
+        register: registerEdit,
+        handleSubmit: handleSubmitEdit,
+        reset: resetEdit,
+        formState: {
+            errors: editErrors,
+            isSubmitting: isUpdating,
+        },
+    } = useForm<
+        UpdateDeviceFormInput,
+        unknown,
+        UpdateDeviceFormValues
+    >({
+        resolver: zodResolver(
+            updateDeviceFormSchema
+        ),
+    });
+
+    const handleStartEdit = (
+        device: Device
+    ) => {
+        setEditingDeviceId(device.id);
+        setOriginalDevice(device);
+
+        resetEdit({
+            title: device.title,
+            manufacturer: device.manufacturer,
+            model: device.model,
+            ipAddress: device.ipAddress,
+            sshPort: device.sshPort,
+            username: device.username,
+        });
+    };
+
+    const handleCancelEdit = () => {
+        setEditingDeviceId(null);
+        setOriginalDevice(null);
+        resetEdit();
+    };
+
+    const handleSaveDevice:
+        SubmitHandler<UpdateDeviceFormValues> =
+        async (values) => {
+            if (
+                editingDeviceId === null ||
+                originalDevice === null
+            ) {
+                return;
+            }
+
+            const payload =
+                buildUpdateDevicePayload(
+                    originalDevice,
+                    values
+                );
+
+            const hasChanges =
+                Object.values(payload).some(
+                    (value) => value !== null
+                );
+
+            if (!hasChanges) {
+                toast.info(
+                    "No device properties were changed."
+                );
+                return;
+            }
+
+            try {
+                await updateDevice(
+                    editingDeviceId,
+                    payload
+                );
+
+                handleCancelEdit();
+
+                await Promise.all([
+                    loadDevices(currentPage),
+
+                    loadSelectionDevices(
+                        selectionCurrentPage
+                    ),
+
+                    onDeviceChanged
+                        ? Promise.resolve(
+                            onDeviceChanged()
+                        )
+                        : Promise.resolve(),
+                ]);
+
+                toast.success(
+                    "Device updated successfully."
+                );
+            } catch (error) {
+                toast.error(
+                    error instanceof Error
+                        ? error.message
+                        : "Failed to update device."
+                );
+            }
+        };
 // ---------------- Fetch Devices ----------------
 
     const loadDevices = async (page: number = 0) => {
@@ -834,11 +998,11 @@ Select target devices from directory.
                     </div>
 
                     {/* Device Directory Table */}
-                    <div className="w-full overflow-hidden rounded-xl border border-gray-200 shadow-sm bg-white">
+                    <div className="w-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
                         <div className="w-full overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
+                            <table className="w-full border-collapse text-left">
                                 <thead>
-                                <tr className="bg-gray-50 border-b border-gray-200">
+                                <tr className="border-b border-gray-200 bg-gray-50">
                                     <th className="p-3.5 text-xs font-bold uppercase text-gray-500">
                                         Title
                                     </th>
@@ -863,8 +1027,8 @@ Select target devices from directory.
                                         Username
                                     </th>
 
-                                    <th className="p-3.5 text-xs font-bold uppercase text-gray-500 text-center">
-                                        Delete
+                                    <th className="p-3.5 text-center text-xs font-bold uppercase text-gray-500">
+                                        Actions
                                     </th>
                                 </tr>
                                 </thead>
@@ -880,59 +1044,291 @@ Select target devices from directory.
                                         </td>
                                     </tr>
                                 ) : devices.length > 0 ? (
-                                    devices.map((device) => (
-                                        <tr
-                                            key={device.id}
-                                            className="hover:bg-gray-50/70 transition-colors"
-                                        >
-                                            <td className="p-3.5 font-bold text-gray-900">
-                                                {device.title}
-                                            </td>
+                                    devices.map((device) => {
+                                        const isEditing =
+                                            editingDeviceId === device.id;
 
-                                            <td className="p-3.5 text-gray-600">
-                                                {device.manufacturer}
-                                            </td>
+                                        return (
+                                            <tr
+                                                key={device.id}
+                                                className={
+                                                    isEditing
+                                                        ? "bg-blue-50/40"
+                                                        : "transition-colors hover:bg-gray-50/70"
+                                                }
+                                            >
+                                                {/* Title */}
+                                                <td className="p-3.5 align-top">
+                                                    {isEditing ? (
+                                                        <>
+                                                            <input
+                                                                type="text"
+                                                                {...registerEdit(
+                                                                    "title"
+                                                                )}
+                                                                className="w-full min-w-32 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs text-black focus:border-blue-500 focus:outline-none"
+                                                            />
 
-                                            <td className="p-3.5 font-mono text-gray-600">
-                                                {device.model}
-                                            </td>
+                                                            {editErrors.title?.message && (
+                                                                <p className="mt-1 text-[10px] text-custom-dark-red">
+                                                                    {
+                                                                        editErrors.title
+                                                                            .message
+                                                                    }
+                                                                </p>
+                                                            )}
+                                                        </>
+                                                    ) : (
+                                                        <span className="font-bold text-gray-900">
+                                            {device.title}
+                                        </span>
+                                                    )}
+                                                </td>
 
-                                            <td className="p-3.5 font-mono text-gray-600">
-                                                {device.ipAddress}
-                                            </td>
+                                                {/* Manufacturer */}
+                                                <td className="p-3.5 align-top">
+                                                    {isEditing ? (
+                                                        <>
+                                                            <input
+                                                                type="text"
+                                                                {...registerEdit(
+                                                                    "manufacturer"
+                                                                )}
+                                                                className="w-full min-w-32 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs text-black focus:border-blue-500 focus:outline-none"
+                                                            />
 
-                                            <td className="p-3.5 font-mono text-gray-600">
-                                                {device.sshPort}
-                                            </td>
+                                                            {editErrors.manufacturer
+                                                                ?.message && (
+                                                                <p className="mt-1 text-[10px] text-custom-dark-red">
+                                                                    {
+                                                                        editErrors
+                                                                            .manufacturer
+                                                                            .message
+                                                                    }
+                                                                </p>
+                                                            )}
+                                                        </>
+                                                    ) : (
+                                                        <span className="text-gray-600">
+                                            {device.manufacturer}
+                                        </span>
+                                                    )}
+                                                </td>
 
-                                            <td className="p-3.5 text-gray-700 font-mono">
-                                                {device.username}
-                                            </td>
+                                                {/* Model */}
+                                                <td className="p-3.5 align-top">
+                                                    {isEditing ? (
+                                                        <>
+                                                            <input
+                                                                type="text"
+                                                                {...registerEdit(
+                                                                    "model"
+                                                                )}
+                                                                className="w-full min-w-32 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs text-black focus:border-blue-500 focus:outline-none"
+                                                            />
 
-                                            <td className="p-3.5 text-center">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        if (!device.id) {
-                                                            return;
-                                                        }
+                                                            {editErrors.model?.message && (
+                                                                <p className="mt-1 text-[10px] text-custom-dark-red">
+                                                                    {
+                                                                        editErrors.model
+                                                                            .message
+                                                                    }
+                                                                </p>
+                                                            )}
+                                                        </>
+                                                    ) : (
+                                                        <span className="font-mono text-gray-600">
+                                            {device.model}
+                                        </span>
+                                                    )}
+                                                </td>
 
-                                                        const confirmed = window.confirm(
-                                                            `Are you sure you want to delete the device "${device.title}"?\n\nThis action cannot be undone.`
-                                                        );
+                                                {/* IP Address */}
+                                                <td className="p-3.5 align-top">
+                                                    {isEditing ? (
+                                                        <>
+                                                            <input
+                                                                type="text"
+                                                                {...registerEdit(
+                                                                    "ipAddress"
+                                                                )}
+                                                                className="w-full min-w-36 rounded-md border border-gray-300 bg-white px-2 py-1.5 font-mono text-xs text-black focus:border-blue-500 focus:outline-none"
+                                                            />
 
-                                                        if (confirmed) {
-                                                            void handleDeleteDevice(device.id);
-                                                        }
-                                                    }}
-                                                    className="p-1.5 text-gray-400 hover:text-custom-dark-red rounded-lg hover:bg-red-50 transition-colors"
-                                                    title="Delete Device"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))
+                                                            {editErrors.ipAddress
+                                                                ?.message && (
+                                                                <p className="mt-1 text-[10px] text-custom-dark-red">
+                                                                    {
+                                                                        editErrors
+                                                                            .ipAddress
+                                                                            .message
+                                                                    }
+                                                                </p>
+                                                            )}
+                                                        </>
+                                                    ) : (
+                                                        <span className="font-mono text-gray-600">
+                                            {device.ipAddress}
+                                        </span>
+                                                    )}
+                                                </td>
+
+                                                {/* SSH Port */}
+                                                <td className="p-3.5 align-top">
+                                                    {isEditing ? (
+                                                        <>
+                                                            <input
+                                                                type="number"
+                                                                min={1}
+                                                                max={65535}
+                                                                {...registerEdit(
+                                                                    "sshPort"
+                                                                )}
+                                                                className="w-full min-w-20 rounded-md border border-gray-300 bg-white px-2 py-1.5 font-mono text-xs text-black focus:border-blue-500 focus:outline-none"
+                                                            />
+
+                                                            {editErrors.sshPort
+                                                                ?.message && (
+                                                                <p className="mt-1 text-[10px] text-custom-dark-red">
+                                                                    {
+                                                                        editErrors
+                                                                            .sshPort
+                                                                            .message
+                                                                    }
+                                                                </p>
+                                                            )}
+                                                        </>
+                                                    ) : (
+                                                        <span className="font-mono text-gray-600">
+                                            {device.sshPort}
+                                        </span>
+                                                    )}
+                                                </td>
+
+                                                {/* Username */}
+                                                <td className="p-3.5 align-top">
+                                                    {isEditing ? (
+                                                        <>
+                                                            <input
+                                                                type="text"
+                                                                {...registerEdit(
+                                                                    "username"
+                                                                )}
+                                                                className="w-full min-w-28 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs text-black focus:border-blue-500 focus:outline-none"
+                                                            />
+
+                                                            {editErrors.username
+                                                                ?.message && (
+                                                                <p className="mt-1 text-[10px] text-custom-dark-red">
+                                                                    {
+                                                                        editErrors
+                                                                            .username
+                                                                            .message
+                                                                    }
+                                                                </p>
+                                                            )}
+                                                        </>
+                                                    ) : (
+                                                        <span className="font-mono text-gray-700">
+                                            {device.username}
+                                        </span>
+                                                    )}
+                                                </td>
+
+                                                {/* Actions */}
+                                                <td className="p-3.5 align-top">
+                                                    <div className="flex items-center justify-center gap-1">
+                                                        {isEditing ? (
+                                                            <>
+                                                                {/* Save */}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={handleSubmitEdit(
+                                                                        handleSaveDevice
+                                                                    )}
+                                                                    disabled={isUpdating}
+                                                                    className="rounded-lg p-1.5 text-green-700 transition-colors hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                                                    title="Save Changes"
+                                                                >
+                                                                    <Check className="h-4 w-4" />
+                                                                </button>
+
+                                                                {/* Cancel */}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={
+                                                                        handleCancelEdit
+                                                                    }
+                                                                    disabled={isUpdating}
+                                                                    className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+                                                                    title="Cancel Editing"
+                                                                >
+                                                                    <X className="h-4 w-4" />
+                                                                </button>
+
+                                                                {/* Disabled delete */}
+                                                                <button
+                                                                    type="button"
+                                                                    disabled
+                                                                    className="cursor-not-allowed rounded-lg p-1.5 text-gray-300"
+                                                                    title="Delete is disabled while editing"
+                                                                >
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </button>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                {/* Edit */}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        handleStartEdit(
+                                                                            device
+                                                                        )
+                                                                    }
+                                                                    disabled={
+                                                                        editingDeviceId !==
+                                                                        null
+                                                                    }
+                                                                    className="rounded-lg p-1.5 text-blue-600 transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:text-gray-300"
+                                                                    title="Edit Device"
+                                                                >
+                                                                    <Pencil className="h-4 w-4" />
+                                                                </button>
+
+                                                                {/* Delete */}
+                                                                <button
+                                                                    type="button"
+                                                                    disabled={
+                                                                        editingDeviceId !==
+                                                                        null
+                                                                    }
+                                                                    onClick={() => {
+                                                                        const confirmed =
+                                                                            window.confirm(
+                                                                                `Are you sure you want to delete the device "${device.title}"?\n\nThe record will be soft deleted.`
+                                                                            );
+
+                                                                        if (
+                                                                            confirmed
+                                                                        ) {
+                                                                            void handleDeleteDevice(
+                                                                                device.id
+                                                                            );
+                                                                        }
+                                                                    }}
+                                                                    className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-custom-dark-red disabled:cursor-not-allowed disabled:text-gray-300"
+                                                                    title="Delete Device"
+                                                                >
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
                                 ) : (
                                     <tr>
                                         <td
@@ -949,11 +1345,14 @@ Select target devices from directory.
 
                         {/* Pagination */}
                         {totalPages > 1 && (
-                            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-gray-200 bg-gray-50">
+                            <div className="flex flex-col items-center justify-between gap-3 border-t border-gray-200 bg-gray-50 px-4 py-3 sm:flex-row">
                                 <p className="text-xs text-gray-500">
                                     Page {currentPage + 1} of {totalPages}
                                     {totalElements > 0 && (
-                                        <span> · {totalElements} devices</span>
+                                        <span>
+                        {" "}
+                                            · {totalElements} devices
+                    </span>
                                     )}
                                 </p>
 
@@ -961,8 +1360,12 @@ Select target devices from directory.
                                     <button
                                         type="button"
                                         onClick={handlePreviousPage}
-                                        disabled={currentPage === 0 || isLoadingDevices}
-                                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 bg-white hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                        disabled={
+                                            currentPage === 0 ||
+                                            isLoadingDevices ||
+                                            editingDeviceId !== null
+                                        }
+                                        className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
                                     >
                                         Previous
                                     </button>
@@ -974,13 +1377,18 @@ Select target devices from directory.
                                         <button
                                             key={pageIndex}
                                             type="button"
-                                            onClick={() => handlePageChange(pageIndex)}
-                                            disabled={isLoadingDevices}
-                                            className={`w-8 h-8 rounded-lg text-xs font-semibold transition-colors ${
+                                            onClick={() =>
+                                                handlePageChange(pageIndex)
+                                            }
+                                            disabled={
+                                                isLoadingDevices ||
+                                                editingDeviceId !== null
+                                            }
+                                            className={`h-8 w-8 rounded-lg text-xs font-semibold transition-colors ${
                                                 currentPage === pageIndex
                                                     ? "bg-black text-white"
-                                                    : "border border-gray-300 text-gray-700 bg-white hover:bg-gray-100"
-                                            } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                                    : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
+                                            } disabled:cursor-not-allowed disabled:opacity-50`}
                                         >
                                             {pageIndex + 1}
                                         </button>
@@ -991,9 +1399,10 @@ Select target devices from directory.
                                         onClick={handleNextPage}
                                         disabled={
                                             currentPage >= totalPages - 1 ||
-                                            isLoadingDevices
+                                            isLoadingDevices ||
+                                            editingDeviceId !== null
                                         }
-                                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 bg-white hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                        className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
                                     >
                                         Next
                                     </button>
