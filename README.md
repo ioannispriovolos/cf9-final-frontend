@@ -731,6 +731,6 @@ Coding Factory @ Athens University of Economics and Business (AUEB)
 
 This project was designed and implemented by **Ioannis Priovolos** as part of the Coding Factory final project.
 
-The implementation was developed with the assistance of **OpenAI's ChatGPT** and **Google's Gemini**, which were used as AI programming assistantd for architectural discussions, code reviews, documentation, and development support.
+The implementation was developed with the assistance of **OpenAI's ChatGPT** and **Google's Gemini**, which were used as AI programming assistants for architectural discussions, code reviews, documentation, and development support.
 
 All design decisions, implementation, integration, testing, and final project responsibility remain with the project author.
