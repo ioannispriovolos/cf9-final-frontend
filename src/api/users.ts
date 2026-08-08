@@ -1,137 +1,267 @@
-import { z } from "zod";
 import { getCookie } from "@/utils/cookies";
+
 import {
-    type CreateUserPayload,
-    createUserSchema, type DeleteUserPayload, deleteUserSchema, type PageResponse, PageResponseSchema,
-    type UpdateUserPayload,
+    createUserPayloadSchema,
+    deleteUserSchema,
+    pageResponseSchema,
+    ROLE_TO_ID_MAP,
+    searchUserSchema,
     updateUserSchema,
+    userSchema,
+    type CreateUserPayload,
+    type DeleteUserPayload,
+    type PageResponse,
+    type UpdateUserPayload,
     type User,
-    userSchema
 } from "@/schemas/users";
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL =
+    import.meta.env.VITE_API_URL;
 
-const roleMap = {
-    ADMIN: 1,
-    NETWORK_ENGINEER: 2,
-    VIEWER: 3,
-} as const;
+/* =========================================
+   Shared API helpers
+========================================= */
 
-export async function getUsers(): Promise<User[]> {
-
+function getAuthorizationHeaders(
+    includeContentType = false
+): HeadersInit {
     const token = getCookie("token");
 
-    const res = await fetch(`${API_URL}/users/allusers`, {
-        method: "GET",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`,
-        },
-    });
-
-    if (!res.ok) {
-        throw new Error(`Failed to fetch users (${res.status})`);
-    }
-
-    const data = await res.json();
-    return z.array(userSchema).parse(data);
-}
-
-export async function createUser(payload: CreateUserPayload): Promise<void> {
-
-    const token = getCookie("token");
-
-    const validatedData = createUserSchema.parse(payload);
-
-    const res = await fetch(`${API_URL}/users`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`,
-        },
-        body: JSON.stringify(validatedData),
-    });
-
-    if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.message || "Failed to provision new user identity.");
-    }
-}
-
-export async function updateUser(payload: UpdateUserPayload): Promise<void> {
-    const token = getCookie("token");
-
-    const validated = updateUserSchema.parse(payload);
-
-    const body = {
-        username: validated.username || null,
-        roleId:
-            validated.role === null
-                ? null
-                : roleMap[validated.role],
-    };
-
-    const res = await fetch(`${API_URL}/users/${validated.uuid}`, {
-        method: "PUT",
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(body),
-    });
-
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message ?? "Failed to update user.");
-    }
-}
-
-export async function deleteUser(payload: DeleteUserPayload): Promise<void> {
-
-    const token = getCookie("token");
-
-    const validated = deleteUserSchema.parse(payload);
-
-    const res = await fetch(`${API_URL}/users/${validated.uuid}`, {
-        method: "PATCH",
-        headers: {
-            Authorization: `Bearer ${token}`,
-        },
-    });
-
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-
+    if (!token) {
         throw new Error(
-            err.message ?? "Failed to soft delete user."
+            "Authentication token was not found."
         );
     }
+
+    return {
+        Accept: "application/json",
+
+        ...(includeContentType
+            ? {
+                "Content-Type":
+                    "application/json",
+            }
+            : {}),
+
+        Authorization: `Bearer ${token}`,
+    };
 }
+
+async function getErrorMessage(
+    response: Response,
+    fallbackMessage: string
+): Promise<string> {
+    try {
+        const data: unknown =
+            await response.json();
+
+        if (
+            typeof data === "object" &&
+            data !== null
+        ) {
+            if (
+                "message" in data &&
+                typeof data.message === "string"
+            ) {
+                return data.message;
+            }
+
+            if (
+                "detail" in data &&
+                typeof data.detail === "string"
+            ) {
+                return data.detail;
+            }
+        }
+    } catch {
+        // Response has no JSON error body.
+    }
+
+    return `${fallbackMessage} (${response.status})`;
+}
+
+/* =========================================
+   Read one user
+========================================= */
+
+export async function getUserByUuid(
+    uuid: string
+): Promise<User> {
+    const validated =
+        searchUserSchema.parse({
+            uuid: uuid
+                .trim()
+                .toLowerCase(),
+        });
+
+    const response = await fetch(
+        `${API_URL}/users/${validated.uuid}`,
+        {
+            method: "GET",
+            headers:
+                getAuthorizationHeaders(),
+        }
+    );
+
+    if (!response.ok) {
+        throw new Error(
+            await getErrorMessage(
+                response,
+                "User identifier not found."
+            )
+        );
+    }
+
+    const data: unknown =
+        await response.json();
+
+    return userSchema.parse(data);
+}
+
+/* =========================================
+   Paginated users
+========================================= */
 
 export async function getUsersPaginated(
     page = 0,
     size = 5,
     sort = "username,asc"
 ): Promise<PageResponse> {
-    const token = getCookie("token");
+    const query =
+        new URLSearchParams({
+            page: String(page),
+            size: String(size),
+            sort,
+        });
 
-    // Endpoint matching @GetMapping("/allusers") with Pageable query parameters
-    const url = `${API_URL}/users/allusers?page=${page}&size=${size}&sort=${sort}`;
+    const response = await fetch(
+        `${API_URL}/users/allusers?${query.toString()}`,
+        {
+            method: "GET",
+            headers:
+                getAuthorizationHeaders(),
+        }
+    );
 
-    const res = await fetch(url, {
-        method: "GET",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`,
-        },
-    });
-
-    if (!res.ok) {
-        throw new Error("Failed to retrieve paginated user directory.");
+    if (!response.ok) {
+        throw new Error(
+            await getErrorMessage(
+                response,
+                "Failed to retrieve user directory."
+            )
+        );
     }
 
-    const rawData = await res.json();
+    const data: unknown =
+        await response.json();
 
-    // Parses response against your PageResponseDTO structure
-    return PageResponseSchema.parse(rawData);
+    return pageResponseSchema.parse(data);
+}
+
+/* =========================================
+   Create
+========================================= */
+
+export async function createUser(
+    payload: CreateUserPayload
+): Promise<void> {
+    const validated =
+        createUserPayloadSchema.parse(
+            payload
+        );
+
+    const response = await fetch(
+        `${API_URL}/users`,
+        {
+            method: "POST",
+            headers:
+                getAuthorizationHeaders(true),
+
+            body: JSON.stringify(
+                validated
+            ),
+        }
+    );
+
+    if (!response.ok) {
+        throw new Error(
+            await getErrorMessage(
+                response,
+                "Failed to provision new user identity."
+            )
+        );
+    }
+}
+
+/* =========================================
+   Update
+========================================= */
+
+export async function updateUser(
+    payload: UpdateUserPayload
+): Promise<void> {
+    const validated =
+        updateUserSchema.parse(payload);
+
+    const body = {
+        username: validated.username,
+
+        roleId:
+            validated.role === null
+                ? null
+                : ROLE_TO_ID_MAP[
+                    validated.role
+                    ],
+    };
+
+    const response = await fetch(
+        `${API_URL}/users/${validated.uuid}`,
+        {
+            method: "PUT",
+
+            headers:
+                getAuthorizationHeaders(true),
+
+            body: JSON.stringify(body),
+        }
+    );
+
+    if (!response.ok) {
+        throw new Error(
+            await getErrorMessage(
+                response,
+                "Failed to update user."
+            )
+        );
+    }
+}
+
+/* =========================================
+   Soft delete
+========================================= */
+
+export async function deleteUser(
+    payload: DeleteUserPayload
+): Promise<void> {
+    const validated =
+        deleteUserSchema.parse(payload);
+
+    const response = await fetch(
+        `${API_URL}/users/${validated.uuid}`,
+        {
+            method: "PATCH",
+
+            headers:
+                getAuthorizationHeaders(),
+        }
+    );
+
+    if (!response.ok) {
+        throw new Error(
+            await getErrorMessage(
+                response,
+                "Failed to soft delete user."
+            )
+        );
+    }
 }
