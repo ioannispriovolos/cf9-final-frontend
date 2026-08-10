@@ -43,19 +43,37 @@ import {
     type User,
 } from "@/schemas/users";
 
-/* =========================================================
-   Component-level types and constants
-========================================================= */
-
+/**
+ * Represents the available subviews of the user management console.
+ *
+ * Each value corresponds to one functional area of the component:
+ * viewing/searching users, creating users, modifying users, or
+ * soft-deleting users.
+ */
 type UserSubView =
     | "view"
     | "create"
     | "modify"
     | "delete";
 
+/**
+ * Number of users requested from the backend per page.
+ */
 const PAGE_SIZE = 5;
+
+/**
+ * Default sorting applied to paginated user retrieval.
+ *
+ * Users are ordered alphabetically by username in ascending order.
+ */
 const DEFAULT_SORT = "username,asc";
 
+/**
+ * Initial values used by the create-user form.
+ *
+ * The VIEWER role is selected by default to provide the least privileged
+ * role as the initial form option.
+ */
 const CREATE_USER_DEFAULTS: CreateUserFormData = {
     username: "",
     password: "",
@@ -63,24 +81,44 @@ const CREATE_USER_DEFAULTS: CreateUserFormData = {
     role: "VIEWER",
 };
 
+/**
+ * Initial values used by the update-user form.
+ *
+ * A null role indicates that the user's currently assigned role should
+ * remain unchanged unless the administrator explicitly selects another role.
+ */
 const UPDATE_USER_DEFAULTS: UpdateUserPayload = {
     uuid: "",
     username: "",
     role: null,
 };
 
+/**
+ * Initial values used by the soft-delete user form.
+ */
 const DELETE_USER_DEFAULTS: DeleteUserPayload = {
     uuid: "",
 };
 
+/**
+ * Initial values used by the single-user search form.
+ */
 const SEARCH_USER_DEFAULTS: SearchUserPayload = {
     uuid: "",
 };
 
-/* =========================================================
-   Shared error helper
-========================================================= */
-
+/**
+ * Converts an unknown caught value into a user-facing error message.
+ *
+ * If the caught value is an Error instance, its message is returned.
+ * Otherwise, the supplied fallback message is used.
+ *
+ * @param error - The unknown value caught during an operation.
+ * @param fallbackMessage - Message to return when the caught value is not
+ * an Error instance.
+ *
+ * @returns A safe error message suitable for display to the user.
+ */
 function getErrorMessage(
     error: unknown,
     fallbackMessage: string
@@ -90,60 +128,90 @@ function getErrorMessage(
         : fallbackMessage;
 }
 
-/* =========================================================
-   Component
-========================================================= */
-
+/**
+ * User management console used by administrators to search, create,
+ * modify, and soft-delete user accounts.
+ *
+ * The component coordinates:
+ * - paginated directory retrieval;
+ * - UUID-based user lookup;
+ * - create-user validation and submission;
+ * - update-user validation and submission;
+ * - soft-deletion with user confirmation;
+ * - loading, error, and pagination state;
+ * - role and password validation feedback.
+ *
+ * API communication is delegated to the functions provided by `api/users.ts`,
+ * while form validation is handled through React Hook Form and the Zod
+ * schemas defined in `schemas/users.ts`.
+ *
+ * @returns The user management interface.
+ */
 export default function UserManagementPanel() {
-    /* =====================================================
-       Navigation
-    ===================================================== */
 
+    /**
+     * Tracks which user-management subview is currently visible.
+     */
     const [
         activeSubView,
         setActiveSubView,
     ] = useState<UserSubView>("view");
 
-    /* =====================================================
-       Directory state
-    ===================================================== */
-
+    /**
+     * Stores the users currently displayed in the directory table.
+     *
+     * Depending on the active operation, this may contain either a paginated
+     * collection of users or a single UUID search result.
+     */
     const [users, setUsers] =
         useState<User[]>([]);
 
+    /**
+     * Indicates whether user directory data is currently being retrieved.
+     */
     const [
         isLoadingUsers,
         setIsLoadingUsers,
     ] = useState(false);
 
+    /**
+     * Stores the most recent directory/search error for inline display.
+     */
     const [
         errorMessage,
         setErrorMessage,
     ] = useState<string | null>(null);
 
-    /* =====================================================
-       Pagination
-    ===================================================== */
-
+    /**
+     * Zero-based index of the currently displayed user directory page.
+     */
     const [
         currentPage,
         setCurrentPage,
     ] = useState(0);
 
+    /**
+     * Total number of available backend pages.
+     */
     const [
         totalPages,
         setTotalPages,
     ] = useState(1);
 
+    /**
+     * Total number of active user records reported by the backend.
+     */
     const [
         totalElements,
         setTotalElements,
     ] = useState(0);
 
-    /* =====================================================
-       Search form
-    ===================================================== */
-
+    /**
+     * Configures the UUID-based search form.
+     *
+     * Validation is performed on every field change using `searchUserSchema`,
+     * allowing the search button to be enabled only after a valid UUID is entered.
+     */
     const {
         register: registerSearch,
         handleSubmit: handleSubmitSearch,
@@ -165,10 +233,15 @@ export default function UserManagementPanel() {
         SEARCH_USER_DEFAULTS,
     });
 
-    /* =====================================================
-       Create user form
-    ===================================================== */
-
+    /**
+     * Configures the create-user form.
+     *
+     * React Hook Form manages form state and submission while Zod validates
+     * username rules, password complexity, password confirmation, and role values.
+     *
+     * `watchCreate` is used to provide immediate UI feedback for username length
+     * and password-security requirements.
+     */
     const {
         register: registerCreate,
         handleSubmit: handleSubmitCreate,
@@ -191,10 +264,12 @@ export default function UserManagementPanel() {
         CREATE_USER_DEFAULTS,
     });
 
-    /* =====================================================
-       Update user form
-    ===================================================== */
-
+    /**
+     * Configures the update-user form.
+     *
+     * The form validates the target UUID, required username, and optional role
+     * override. A null role indicates that the current backend role should be kept.
+     */
     const {
         register: registerUpdate,
         handleSubmit: handleSubmitUpdate,
@@ -216,10 +291,12 @@ export default function UserManagementPanel() {
         UPDATE_USER_DEFAULTS,
     });
 
-    /* =====================================================
-       Delete user form
-    ===================================================== */
-
+    /**
+     * Configures the soft-delete form.
+     *
+     * UUID validation is performed while the user types so deletion cannot be
+     * submitted until a valid target user identifier has been provided.
+     */
     const {
         register: registerDelete,
         handleSubmit: handleSubmitDelete,
@@ -241,10 +318,9 @@ export default function UserManagementPanel() {
         DELETE_USER_DEFAULTS,
     });
 
-    /* =====================================================
-       Create-form derived values
-    ===================================================== */
-
+    /**
+     * Watches the create-user form fields that require immediate visual feedback.
+     */
     const username =
         watchCreate("username") ?? "";
 
@@ -254,6 +330,12 @@ export default function UserManagementPanel() {
     const confirmPassword =
         watchCreate("confirmPassword") ?? "";
 
+    /**
+     * Evaluates individual password-complexity requirements for real-time
+     * validation feedback in the create-user interface.
+     *
+     * The values are memoized and recalculated only when the password changes.
+     */
     const passwordRequirements =
         useMemo(
             () => ({
@@ -292,10 +374,15 @@ export default function UserManagementPanel() {
         confirmPassword.length > 0 &&
         password === confirmPassword;
 
-    /* =====================================================
-       Load paginated directory
-    ===================================================== */
-
+    /**
+     * Loads one page of the active user directory from the backend.
+     *
+     * The function manages the directory loading indicator, clears any previous
+     * error, retrieves the requested page, and updates the displayed records and
+     * pagination metadata.
+     *
+     * @param page - Zero-based page index to retrieve.
+     */
     const loadUsers = useCallback(
         async (page: number) => {
             setIsLoadingUsers(true);
@@ -332,10 +419,10 @@ export default function UserManagementPanel() {
         []
     );
 
-    /* =====================================================
-       Automatically reload when page changes
-    ===================================================== */
-
+    /**
+     * Reloads the user directory whenever the user opens the directory subview
+     * or changes pagination page.
+     */
     useEffect(() => {
         if (activeSubView === "view") {
             void loadUsers(currentPage);
@@ -346,10 +433,15 @@ export default function UserManagementPanel() {
         loadUsers,
     ]);
 
-    /* =====================================================
-       Search one user
-    ===================================================== */
-
+    /**
+     * Retrieves one user by UUID and replaces the directory contents with the
+     * matching user.
+     *
+     * Successful searches are represented as a single-record result set.
+     * Failed searches clear the table and expose a readable lookup error.
+     *
+     * @param uuid - Validated UUID submitted through the search form.
+     */
     const onSearchUser:
         SubmitHandler<SearchUserPayload> =
         async ({ uuid }) => {
@@ -385,10 +477,10 @@ export default function UserManagementPanel() {
             }
         };
 
-    /* =====================================================
-       Synchronize directory
-    ===================================================== */
-
+    /**
+     * Clears the current search criteria and reloads the current paginated
+     * directory from the backend.
+     */
     const handleSyncDirectory =
         async () => {
             resetSearch(
@@ -398,10 +490,16 @@ export default function UserManagementPanel() {
             await loadUsers(currentPage);
         };
 
-    /* =====================================================
-       Create user
-    ===================================================== */
-
+    /**
+     * Creates a new user account using validated form data.
+     *
+     * The selected frontend role is translated into the numeric role identifier
+     * expected by the backend. After successful creation, the form is reset and
+     * the first directory page is refreshed because alphabetical sorting may place
+     * the newly created user on a different page.
+     *
+     * @param formData - Validated create-user form values.
+     */
     const onCreateUser:
         SubmitHandler<CreateUserFormData> =
         async ({
@@ -428,11 +526,6 @@ export default function UserManagementPanel() {
                     CREATE_USER_DEFAULTS
                 );
 
-                /*
-                 * Reload page zero because the
-                 * new user's sorted position
-                 * may affect pagination.
-                 */
                 if (currentPage !== 0) {
                     setCurrentPage(0);
                 } else {
@@ -448,10 +541,15 @@ export default function UserManagementPanel() {
             }
         };
 
-    /* =====================================================
-       Open user in update view
-    ===================================================== */
-
+    /**
+     * Opens the modification subview for the selected user.
+     *
+     * The update form is pre-populated with the selected user's UUID and current
+     * username. The role field is initialized to null so the existing role is
+     * preserved unless an administrator explicitly chooses a replacement.
+     *
+     * @param user - User selected from the directory table.
+     */
     const handleEditUser = (
         user: User
     ) => {
@@ -474,10 +572,15 @@ export default function UserManagementPanel() {
         setActiveSubView("modify");
     };
 
-    /* =====================================================
-       Update user
-    ===================================================== */
-
+    /**
+     * Updates the selected user with validated update-form values.
+     *
+     * After a successful update, the update form is reset and the currently
+     * displayed directory page is reloaded so the UI immediately reflects
+     * backend changes.
+     *
+     * @param data - Validated user update payload.
+     */
     const onUpdateUser:
         SubmitHandler<UpdateUserPayload> =
         async (data) => {
@@ -505,10 +608,12 @@ export default function UserManagementPanel() {
             }
         };
 
-    /* =====================================================
-       Open user in delete view
-    ===================================================== */
-
+    /**
+     * Opens the soft-delete subview for the selected user and pre-populates the
+     * deletion form with the selected user's UUID.
+     *
+     * @param uuid - UUID of the user selected for deletion.
+     */
     const handleDeleteUser = (
         uuid: string
     ) => {
@@ -519,10 +624,18 @@ export default function UserManagementPanel() {
         setActiveSubView("delete");
     };
 
-    /* =====================================================
-       Soft delete user
-    ===================================================== */
-
+    /**
+     * Soft-deletes a user after explicit administrator confirmation.
+     *
+     * The operation preserves the database record while delegating the actual
+     * deactivation behavior to the backend. After successful deletion, the
+     * directory is refreshed.
+     *
+     * If the deleted user was the only record on a non-first page, the component
+     * navigates to the previous page to avoid displaying an empty page.
+     *
+     * @param data - Validated payload containing the target user's UUID.
+     */
     const onDeleteUser:
         SubmitHandler<DeleteUserPayload> =
         async (data) => {
@@ -548,11 +661,6 @@ export default function UserManagementPanel() {
                     DELETE_USER_DEFAULTS
                 );
 
-                /*
-                 * If this was the last record
-                 * on a non-first page, go to
-                 * the previous page.
-                 */
                 if (
                     users.length === 1 &&
                     currentPage > 0
@@ -576,10 +684,6 @@ export default function UserManagementPanel() {
                 );
             }
         };
-
-    /* =====================================================
-       JSX
-    ===================================================== */
 
     return (
         <div className="space-y-6">
