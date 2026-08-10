@@ -290,8 +290,6 @@ export async function createUser(
  * successfully.
  *
  * @throws {Error} Throws an error if the backend rejects the update request.
- * @throws {ZodError} Throws a Zod validation error if the supplied payload
- * does not match `updateUserSchema`.
  */
 export async function updateUser(
     payload: UpdateUserPayload
