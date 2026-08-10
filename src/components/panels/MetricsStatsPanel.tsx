@@ -19,6 +19,12 @@ import type {
     ViewerDashboardResponse,
 } from "@/schemas/dashboard";
 
+/**
+ * Props accepted by the system metrics panel.
+ *
+ * The component receives dashboard data that has already been retrieved
+ * and validated by the dashboard API layer.
+ */
 type MetricsStatsPanelProps = {
     dashboardData:
         | ViewerDashboardResponse
@@ -27,6 +33,12 @@ type MetricsStatsPanelProps = {
     isLoading?: boolean;
 };
 
+/**
+ * Describes the configuration required to render a single metric card.
+ *
+ * Each metric includes a display title, numeric value, short description,
+ * and Lucide icon component.
+ */
 type MetricDefinition = {
     title: string;
     value: number;
@@ -34,6 +46,17 @@ type MetricDefinition = {
     icon: LucideIcon;
 };
 
+/**
+ * Renders placeholder metric cards while dashboard data is loading.
+ *
+ * The component mirrors the layout of the real metrics grid using four
+ * shadcn/ui Card components containing Skeleton placeholders.
+ *
+ * Keeping the skeleton dimensions similar to the final content helps reduce
+ * layout shifting when the backend response becomes available.
+ *
+ * @returns A responsive grid containing four loading-placeholder metric cards.
+ */
 function MetricsStatsPanelSkeleton() {
     return (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
