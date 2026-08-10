@@ -29,10 +29,35 @@ import {
 } from "@/schemas/devices";
 import * as React from "react";
 
+/**
+ * Optional callback contract for notifying the parent dashboard that
+ * device-related data has changed.
+ *
+ * The callback may be synchronous or asynchronous. It is used
+ * to refresh shared dashboard metrics after a device is created, updated,
+ * or soft-deleted.
+ */
 type SshManagementPanelProps = {
     onDeviceChanged?: () => void | Promise<void>;
 };
 
+/**
+ * Builds a partial device update payload by comparing the original device
+ * with the values currently entered in the edit form.
+ *
+ * Only modified properties are included as concrete values. Properties that
+ * have not changed are represented by `null`, allowing the backend to retain
+ * their existing values.
+ *
+ * Device passwords are intentionally excluded because this update workflow
+ * does not allow password modification.
+ *
+ * @param original - The original device values loaded from the backend.
+ * @param edited - The validated values currently entered in the edit form.
+ *
+ * @returns An `UpdateDevicePayload` containing changed values and `null`
+ * for fields that were not modified.
+ */
 function buildUpdateDevicePayload(
     original: Device,
     edited: UpdateDeviceFormValues
@@ -74,60 +99,147 @@ function buildUpdateDevicePayload(
     };
 }
 
+/**
+ * Provides the device-management and SSH-execution interface.
+ *
+ * The component is responsible for:
+ * - browsing the paginated device directory;
+ * - registering new devices;
+ * - editing existing device properties;
+ * - soft-deleting devices;
+ * - selecting devices across paginated selection views;
+ * - executing SSH commands against selected devices;
+ * - displaying per-device command results;
+ * - notifying the parent dashboard when device data changes.
+ *
+ * API communication is delegated to the functions defined in `api/devices.ts`,
+ * while form validation is handled through React Hook Form and the Zod schemas
+ * defined in `schemas/devices.ts`.
+ *
+ * @param onDeviceChanged - Optional callback used to refresh shared device
+ * statistics after successful device mutations.
+ *
+ * @returns The SSH and device-management user interface.
+ */
 export default function SshManagementPanel({onDeviceChanged,}: SshManagementPanelProps) {
-    // ---------------- Tabs ----------------
 
+    /**
+     * Tracks which main panel is currently visible:
+     * the SSH terminal or the device directory.
+     */
     const [activeTab, setActiveTab] = useState<"terminal" | "devices">("terminal");
 
-// ---------------- Devices ----------------
+    /**
+     * Number of devices requested from the backend per page.
+     */
     const PAGE_SIZE = 6;
 
+    /**
+     * Stores the devices displayed in the Device Directory tab.
+     */
     const [devices, setDevices] = useState<Device[]>([]);
+    /**
+     * Zero-based index of the currently displayed Device Directory page.
+     */
     const [currentPage, setCurrentPage] = useState(0);
+    /**
+     * Total number of available Device Directory pages.
+     */
     const [totalPages, setTotalPages] = useState(0);
+    /**
+     * Total number of active devices reported by the backend.
+     */
     const [totalElements, setTotalElements] = useState(0);
+    /**
+     * Indicates whether the Device Directory is currently being retrieved.
+     */
     const [isLoadingDevices, setIsLoadingDevices] = useState(false);
 
+    /**
+     * Stores the devices displayed in the paginated SSH target-selection view.
+     *
+     * This state is intentionally separate from `devices` so navigation in the
+     * terminal selection area does not affect pagination in the Device Directory.
+     */
     const [selectionDevices, setSelectionDevices] =
         useState<Device[]>([]);
 
+    /**
+     * Zero-based page index for the SSH target-selection device list.
+     */
     const [selectionCurrentPage, setSelectionCurrentPage] =
         useState(0);
+
+    /**
+     * Total number of pages available in the SSH target-selection list.
+     */
 
     const [selectionTotalPages, setSelectionTotalPages] =
         useState(0);
 
+    /**
+     * Total number of active devices available for SSH target selection.
+     */
     const [selectionTotalElements, setSelectionTotalElements] =
         useState(0);
 
+    /**
+     * Indicates whether the SSH target-selection page is currently loading.
+     */
     const [isLoadingSelectionDevices, setIsLoadingSelectionDevices] =
         useState(false);
 
+    /**
+     * Stores the ID of the device row currently being edited.
+     *
+     * A null value indicates that no device is currently in edit mode.
+     */
     const [
         editingDeviceId,
         setEditingDeviceId,
     ] = useState<number | null>(null);
 
+    /**
+     * Stores the original values of the device currently being edited.
+     *
+     * These values are used to determine which properties actually changed
+     * before constructing the partial update request.
+     */
     const [
         originalDevice,
         setOriginalDevice,
     ] = useState<Device | null>(null);
 
-// ---------------- Terminal ----------------
-
+    /**
+     * Stores the IDs of all devices currently selected for SSH execution.
+     *
+     * Selection is preserved when navigating between device-selection pages.
+     */
     const [selectedDeviceIds, setSelectedDeviceIds] = useState<number[]>([]);
+    /**
+     * Stores the SSH command currently entered by the user.
+     */
     const [command, setCommand] = useState("");
-
+    /**
+     * Stores the formatted text displayed in the SSH terminal output panel.
+     */
     const [terminalOutput, setTerminalOutput] = useState(
         `SSH Management Engine Initialized.
 Select target devices from directory.
 ------------------------------------------------------------`
     );
-
+    /**
+     * Indicates whether an SSH command is currently being executed.
+     */
     const [isExecuting, setIsExecuting] = useState(false);
 
-// ---------------- Device Form ----------------
-
+    /**
+     * Configures the create-device form.
+     *
+     * React Hook Form manages input state and submission, while Zod validates
+     * device properties such as title, manufacturer, IPv4 address, SSH port,
+     * username, and password before the request is sent.
+     */
     const {
         register,
         handleSubmit,
@@ -153,6 +265,12 @@ Select target devices from directory.
         },
     });
 
+    /**
+     * Configures the inline device-update form.
+     *
+     * The form is populated with the selected row's current device properties.
+     * Password modification is intentionally excluded from this update workflow.
+     */
     const {
         register: registerEdit,
         handleSubmit: handleSubmitEdit,
@@ -171,6 +289,14 @@ Select target devices from directory.
         ),
     });
 
+    /**
+     * Places a device row into edit mode.
+     *
+     * The original device is stored for later comparison, and the edit form is
+     * populated with the device's current values.
+     *
+     * @param device - The device selected for editing.
+     */
     const handleStartEdit = (
         device: Device
     ) => {
@@ -187,12 +313,32 @@ Select target devices from directory.
         });
     };
 
+    /**
+     * Cancels the current device-edit operation.
+     *
+     * The component leaves edit mode, discards the stored original device,
+     * and clears the edit form state.
+     */
     const handleCancelEdit = () => {
         setEditingDeviceId(null);
         setOriginalDevice(null);
         resetEdit();
     };
 
+    /**
+     * Validates and persists modifications made to the currently edited device.
+     *
+     * The current form values are compared with the original device so unchanged
+     * fields can be represented by `null`. If no values changed, no request is sent.
+     *
+     * After a successful update:
+     * - edit mode is closed;
+     * - the Device Directory is refreshed;
+     * - the SSH target-selection list is refreshed;
+     * - the parent dashboard is notified when a callback is available.
+     *
+     * @param values - Validated device values from the inline edit form.
+     */
     const handleSaveDevice:
         SubmitHandler<UpdateDeviceFormValues> =
         async (values) => {
@@ -254,8 +400,15 @@ Select target devices from directory.
                 );
             }
         };
-// ---------------- Fetch Devices ----------------
 
+    /**
+     * Retrieves one paginated Device Directory page from the backend.
+     *
+     * The function updates the displayed device records and all associated
+     * pagination metadata while maintaining a loading indicator.
+     *
+     * @param page - Zero-based Device Directory page index. Defaults to `0`.
+     */
     const loadDevices = async (page: number = 0) => {
         try {
             setIsLoadingDevices(true);
@@ -280,22 +433,38 @@ Select target devices from directory.
         }
     };
 
+    /**
+     * Reloads the Device Directory whenever the current directory page changes.
+     */
     useEffect(() => {
         void loadDevices(currentPage);
     }, [currentPage]);
 
+    /**
+     * Navigates to the previous Device Directory page without going below page 0.
+     */
     const handlePreviousPage = () => {
         setCurrentPage((previousPage) =>
             Math.max(previousPage - 1, 0)
         );
     };
 
+    /**
+     * Navigates to the next Device Directory page without exceeding the
+     * final available page.
+     */
     const handleNextPage = () => {
         setCurrentPage((previousPage) =>
             Math.min(previousPage + 1, totalPages - 1)
         );
     };
 
+    /**
+     * Navigates directly to a specific Device Directory page when the requested
+     * page index is valid and differs from the current page.
+     *
+     * @param page - Zero-based target page index.
+     */
     const handlePageChange = (page: number) => {
         if (
             page >= 0 &&
@@ -306,6 +475,14 @@ Select target devices from directory.
         }
     };
 
+    /**
+     * Retrieves one page of devices for the SSH target-selection interface.
+     *
+     * This pagination flow is independent from the Device Directory pagination,
+     * allowing users to browse SSH targets without changing the directory page.
+     *
+     * @param page - Zero-based target-selection page index.
+     */
     const loadSelectionDevices = async (
         page: number
     ) => {
@@ -331,12 +508,19 @@ Select target devices from directory.
         }
     };
 
+    /**
+     * Reloads the SSH target-selection device list whenever its page changes.
+     */
     useEffect(() => {
         void loadSelectionDevices(
             selectionCurrentPage
         );
     }, [selectionCurrentPage]);
 
+    /**
+     * Extracts the IDs of all devices displayed on the current SSH
+     * target-selection page.
+     */
     const selectionPageDeviceIds =
         selectionDevices
             .map((device) => device.id)
@@ -345,12 +529,22 @@ Select target devices from directory.
                     id !== undefined
             );
 
+    /**
+     * Indicates whether every device visible on the current SSH
+     * target-selection page is already selected.
+     */
     const areAllCurrentPageDevicesSelected =
         selectionPageDeviceIds.length > 0 &&
         selectionPageDeviceIds.every((id) =>
             selectedDeviceIds.includes(id)
         );
 
+    /**
+     * Selects or deselects every device on the current SSH target-selection page.
+     *
+     * Device IDs selected on other pages are preserved, allowing command targets
+     * to span multiple pages.
+     */
     const toggleSelectAllSelectionPage = () => {
         if (areAllCurrentPageDevicesSelected) {
             setSelectedDeviceIds((previousIds) =>
@@ -369,12 +563,18 @@ Select target devices from directory.
         }
     };
 
+    /**
+     * Navigates to the previous SSH target-selection page.
+     */
     const handleSelectionPreviousPage = () => {
         setSelectionCurrentPage((previousPage) =>
             Math.max(previousPage - 1, 0)
         );
     };
 
+    /**
+     * Navigates to the next SSH target-selection page.
+     */
     const handleSelectionNextPage = () => {
         setSelectionCurrentPage((previousPage) =>
             Math.min(
@@ -383,6 +583,12 @@ Select target devices from directory.
             )
         );
     };
+
+    /**
+     * Navigates directly to a specific SSH target-selection page.
+     *
+     * @param pageIndex - Zero-based target page index.
+     */
 
     const handleSelectionPageChange = (
         pageIndex: number
@@ -396,8 +602,15 @@ Select target devices from directory.
         }
     };
 
-// ---------------- Add Device ----------------
-
+    /**
+     * Registers a new network device using validated create-form data.
+     *
+     * After successful registration, the create form is reset and both the
+     * Device Directory and SSH target-selection list are refreshed. The parent
+     * dashboard is also notified when `onDeviceChanged` is available.
+     *
+     * @param payload - Validated device creation payload.
+     */
     const onAddDevice = async (
         payload: CreateDevicePayload
     ) => {
@@ -434,8 +647,19 @@ Select target devices from directory.
         }
     };
 
-// ---------------- Delete Device ----------------
-
+    /**
+     * Soft-deletes a network device and synchronizes all related UI state.
+     *
+     * The deleted device is removed from the current SSH selection. Pagination
+     * is adjusted when deleting the final device from a non-first page.
+     *
+     * After deletion:
+     * - the Device Directory is refreshed or moved back one page;
+     * - the SSH target-selection page is refreshed or moved back one page;
+     * - parent dashboard metrics are refreshed when possible.
+     *
+     * @param deviceId - Unique numeric identifier of the device to soft-delete.
+     */
     const handleDeleteDevice = async (
         deviceId: number
     ) => {
@@ -510,8 +734,26 @@ Select target devices from directory.
             );
         }
     };
-// ---------------- Execute Command ----------------
 
+    /**
+     * Executes the current SSH command against all selected devices.
+     *
+     * The function validates that a non-empty command and at least one device
+     * selection exist before calling the backend SSH execution endpoint.
+     *
+     * Each per-device result is transformed into a human-readable terminal block
+     * containing:
+     * - device title;
+     * - IP address;
+     * - execution status;
+     * - execution duration;
+     * - command output or error information.
+     *
+     * A summary toast communicates whether all commands succeeded, all failed,
+     * or the batch completed with mixed results.
+     *
+     * @param e - Form submission event from the SSH command form.
+     */
     const onExecuteCommand = async (
         e: React.SubmitEvent<HTMLFormElement>
     ) => {
@@ -600,8 +842,15 @@ Select target devices from directory.
             setIsExecuting(false);
         }
     };
-// ---------------- Device Selection ----------------
 
+    /**
+     * Toggles the SSH selection state of a single device.
+     *
+     * If the device is already selected, it is removed. Otherwise, its ID is
+     * appended to the existing selection. Selections from other pages are retained.
+     *
+     * @param id - Unique numeric identifier of the device to toggle.
+     */
     const toggleDeviceSelect = (id: number) => {
         setSelectedDeviceIds((prev) =>
             prev.includes(id)
