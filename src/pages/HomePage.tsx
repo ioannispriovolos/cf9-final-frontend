@@ -12,16 +12,15 @@ import {
 } from "lucide-react";
 
 import { Link } from "react-router";
+import * as React from "react";
 
 export default function HomePage() {
     return (
         <div className="w-full bg-white text-black">
 
-            {/* HERO */}
             <section className="border-b border-gray-200 bg-linear-to-b from-gray-50 to-white">
                 <div className="container mx-auto grid min-h-[70vh] grid-cols-1 items-center gap-12 px-6 py-16 lg:grid-cols-2 lg:px-10">
 
-                    {/* Hero copy */}
                     <div className="max-w-2xl">
                         <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 shadow-sm">
                             <Network className="h-4 w-4 text-custom-dark-red" />
@@ -57,7 +56,6 @@ export default function HomePage() {
                         </div>
                     </div>
 
-                    {/* Hero visual */}
                     <div className="relative">
                         <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-xl">
                             <div className="rounded-xl border border-gray-800 bg-gray-950 p-5 font-mono text-xs text-green-400">

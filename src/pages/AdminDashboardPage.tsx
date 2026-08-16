@@ -12,11 +12,36 @@ import { getViewerDashboard } from "@/api/dashboard";
 
 import type { ViewerDashboardResponse } from "@/schemas/dashboard";
 
+/**
+ * Defines the available sections of the administrator dashboard.
+ *
+ * Each value corresponds to one functional area that can be selected
+ * from the dashboard navigation:
+ * - `users` displays user-management functionality;
+ * - `ssh` displays device management and SSH execution functionality;
+ * - `metrics` displays system and device statistics.
+ */
 type AdminDashboardTab =
     | "users"
     | "ssh"
     | "metrics";
 
+/**
+ * Renders the main dashboard interface for administrators.
+ *
+ * The component coordinates navigation between user management,
+ * SSH/device management, and system metrics.
+ *
+ * Dashboard metrics are loaded lazily when the administrator first opens
+ * the metrics tab rather than being requested immediately when the page
+ * mounts.
+ *
+ * The component also provides a device-change callback to the SSH management
+ * panel so dashboard statistics can be refreshed after device-related
+ * operations such as creation, modification, or deletion.
+ *
+ * @returns The administrator dashboard interface.
+ */
 export default function AdminDashboardPage() {
     const [activeTab, setActiveTab] =
         useState<AdminDashboardTab>("users");
@@ -34,6 +59,22 @@ export default function AdminDashboardPage() {
         setDashboardError,
     ] = useState<string | null>(null);
 
+    /**
+     * Retrieves the latest dashboard statistics from the backend.
+     *
+     * The function manages the complete request lifecycle by enabling the
+     * loading state, clearing previous errors, requesting the viewer-compatible
+     * dashboard metrics, and storing the validated response.
+     *
+     * If retrieval fails, the error is logged for debugging and a readable
+     * error message is stored for presentation by the user interface.
+     *
+     * The callback is memoized so it can safely be referenced by effects and
+     * other memoized callbacks without being recreated on every render.
+     *
+     * @returns A Promise that resolves when the dashboard loading operation
+     * has completed.
+     */
     const loadDashboard = useCallback(async () => {
         try {
             setIsLoadingDashboard(true);
@@ -59,6 +100,18 @@ export default function AdminDashboardPage() {
         }
     }, []);
 
+    /**
+     * Lazily loads dashboard statistics when the administrator opens
+     * the System Metrics tab.
+     *
+     * A backend request is triggered only when:
+     * - the metrics tab is currently active;
+     * - dashboard data has not already been loaded; and
+     * - another dashboard request is not currently in progress.
+     *
+     * This avoids unnecessary dashboard requests when the administrator
+     * only uses the user-management or SSH-management sections.
+     */
     useEffect(() => {
         if (
             activeTab === "metrics" &&
@@ -74,6 +127,20 @@ export default function AdminDashboardPage() {
         loadDashboard,
     ]);
 
+    /**
+     * Refreshes dashboard statistics after device data has changed.
+     *
+     * This callback is intended to be passed to device-management components
+     * such as `SshManagementPanel`. Successful device creation, modification,
+     * or deletion can invoke the callback so metric values remain synchronized
+     * with the current backend state.
+     *
+     * The callback is memoized to maintain a stable function reference between
+     * renders.
+     *
+     * @returns A Promise that resolves after the dashboard metrics have been
+     * refreshed.
+     */
     const handleDeviceChanged = useCallback(
         async () => {
             await loadDashboard();
